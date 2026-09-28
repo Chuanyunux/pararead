@@ -7,7 +7,7 @@ const read = (path) => readFileSync(join(root, path), "utf8");
 
 const viewerHtml = read("assets/pdf.js/web/viewer.html");
 const provider = read("src/pdf-viewer-provider.ts");
-const main = read("assets/main.mjs");
+const main = read("src/webview/main.ts");
 const patch = read("patches/pdf.js.patch");
 
 assert.equal(viewerHtml.match(/Content-Security-Policy/gu)?.length ?? 0, 0);
@@ -36,14 +36,11 @@ const assets = new Map([
 
 for (const [option, path] of assets) {
   assert.ok(provider.includes(`${option}:`), `Missing provider option: ${option}`);
-  assert.ok(main.includes(`set("${option}"`), `Missing viewer option: ${option}`);
+  assert.ok(main.includes(`"${option}"`), `Missing viewer option: ${option}`);
   assert.ok(existsSync(join(root, path)), `Missing PDF.js asset: ${path}`);
 }
 assert.ok(existsSync(join(root, "assets/pdf.js/build/pdf.worker.mjs")), "Missing PDF.js worker");
-assert.ok(
-  !main.includes('set("workerSrc"'),
-  "Absolute workerSrc triggers a 30-second webview delay",
-);
+assert.ok(!main.includes('"workerSrc"'), "Absolute workerSrc triggers a 30-second webview delay");
 assert.ok(!provider.includes("workerSrc:"), "Do not override PDF.js's relative workerSrc");
 
 for (const snippet of [
@@ -54,9 +51,10 @@ for (const snippet of [
   assert.ok(patch.includes(snippet), `Missing link guard: ${snippet}`);
 }
 assert.ok(main.includes("event.origin !== window.origin"), "Missing message origin guard");
-const initialOpen = main.indexOf("PDFViewerApplication.open(config)");
-const pagesReady = main.indexOf("pdfViewer.pagesPromise");
-const fragmentApplied = main.indexOf("pdfLinkService.setHash");
+// The initial open is the last one in the file (the reload handler comes first).
+const initialOpen = main.lastIndexOf("app.open(config)");
+const pagesReady = main.lastIndexOf("pdfViewer.pagesPromise");
+const fragmentApplied = main.lastIndexOf("pdfLinkService.setHash");
 assert.ok(
   initialOpen !== -1 && initialOpen < pagesReady && pagesReady < fragmentApplied,
   "PDF fragment applied before pages are ready",

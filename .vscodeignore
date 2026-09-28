@@ -29,3 +29,8 @@ pnpm-workspace.yaml
 release-please-config.json
 third_party/**
 tools/**
+test/**
+papers/**
+.claude/**
+.cache/**
+*-–Ë«Û.md

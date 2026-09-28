@@ -4,8 +4,11 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "type": "npm",
-      "script": "build",
+      // Runs the local tsup directly so that F5 works without pnpm on PATH.
+      "label": "build",
+      "type": "shell",
+      "command": "npx",
+      "args": ["--no-install", "tsup"],
       "group": {
         "kind": "build",
         "isDefault": true

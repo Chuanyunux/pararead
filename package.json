@@ -1,8 +1,8 @@
 {
-  "name": "vscode-pdf",
-  "displayName": "PDF Viewer",
-  "version": "0.2.5",
-  "description": "Portable document format (PDF) viewer for Visual Studio Code.",
+  "name": "pdf-bilingual-reader",
+  "displayName": "PDF Bilingual Reader",
+  "version": "0.1.0",
+  "description": "Sentence-level bilingual (EN→ZH) PDF reader with annotations, based on vscode-pdf and PDF.js.",
   "categories": [
     "Visualization",
     "Other"
@@ -10,37 +10,36 @@
   "keywords": [
     "pdf",
     "viewer",
-    "reader",
-    "document",
-    "preview"
+    "translate",
+    "bilingual",
+    "paper"
   ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/mathematic-inc/vscode-pdf.git"
-  },
   "license": "Apache-2.0",
-  "author": "Mathematic Inc",
-  "publisher": "mathematic",
+  "author": "chuanyun",
+  "publisher": "chuanyun",
   "main": "./dist/extension.js",
   "scripts": {
     "build": "tsup",
     "check": "pnpm run typecheck && pnpm run check:pdfjs && oxlint --deny-warnings . && oxfmt --check .",
     "check:pdfjs": "node tools/check_pdfjs.mjs",
     "fix": "oxlint --fix --deny-warnings . && oxfmt --write .",
+    "fixtures": "node tools/dump_text_content.mjs",
     "format": "oxfmt --write .",
+    "harness": "node tools/harness.mjs",
     "lint": "oxlint --deny-warnings .",
     "package": "pnpm run check:pdfjs && tsup --minify",
-    "prepare": "if [ -z \"$CI\" ] && command -v hk >/dev/null 2>&1; then hk install; fi",
-    "typecheck": "tsc --noEmit",
+    "segment": "tsup tools/segment_fixture.ts --format esm --platform node --out-dir .cache/tools --no-config --silent && node .cache/tools/segment_fixture.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p src/webview",
     "vscode:prepublish": "pnpm run package",
     "watch": "tsup --watch"
   },
   "contributes": {
     "configuration": {
-      "title": "PDF",
+      "title": "PDF Bilingual Reader",
       "type": "object",
       "properties": {
-        "pdf.defaultZoomValue": {
+        "pdfBilingual.defaultZoomValue": {
           "type": "string",
           "default": "auto",
           "scope": "resource",
@@ -70,7 +69,7 @@
           ],
           "description": "Default zoom level when opening a PDF."
         },
-        "pdf.sidebarViewOnLoad": {
+        "pdfBilingual.sidebarViewOnLoad": {
           "type": "number",
           "default": 0,
           "scope": "resource",
@@ -96,8 +95,8 @@
     },
     "customEditors": [
       {
-        "viewType": "pdf.view",
-        "displayName": "PDF View",
+        "viewType": "pdfBilingual.view",
+        "displayName": "PDF Bilingual Reader",
         "selector": [
           {
             "filenamePattern": "*.pdf"
@@ -111,16 +110,17 @@
   ],
   "devDependencies": {
     "@types/node": "26.6.1",
-    "@types/vscode": "1.134.0",
+    "@types/vscode": "1.95.0",
     "@vscode/vsce": "^4.0.0",
     "oxfmt": "^0.68.0",
     "oxlint": "^1.83.0",
     "tsup": "^8.5.1",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.2"
   },
   "packageManager": "pnpm@11.24.0+sha512.bd27e345e976dcb0be0b7a1228217b049a817e21b1f355c90dbe7dc46671895a8bc1e6d06c24554505ea93ea0b45f489a27ec1bfbc8de6a9659fca0f16fa0000",
   "engines": {
-    "vscode": "^1.134.0"
+    "vscode": "^1.95.0"
   },
   "icon": "icon.png"
 }

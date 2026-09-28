@@ -1,0 +1,18 @@
+PDF Bilingual Reader
+Copyright 2026 chuanyun
+
+This product is a modified version of vscode-pdf
+(https://github.com/mathematic-inc/vscode-pdf), Copyright 2021 Mathematic Inc,
+licensed under the Apache License, Version 2.0.
+
+Changes to the upstream code:
+- src/extension.ts: removed the sponsorship prompt.
+- src/pdf-viewer-provider.ts, src/pdf-document.ts: editable custom editor
+  (annotation save, save as, revert, backup) and a typed message bridge.
+- assets/main.mjs: ported to TypeScript as src/webview/main.ts and extended.
+- package.json: new extension identity, view type and settings namespace.
+All other new functionality lives in new files under src/ and assets/panel.css.
+
+This product bundles PDF.js (https://github.com/mozilla/pdf.js),
+Copyright Mozilla Foundation, licensed under the Apache License, Version 2.0
+(see assets/pdf.js/LICENSE), with the modifications in patches/pdf.js.patch.

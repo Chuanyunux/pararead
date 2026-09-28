@@ -12,14 +12,23 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Modified by chuanyun, 2026: editable custom editor (annotation save,
+ * save as, revert, backup), typed message bridge, bilingual webview bundle.
  */
 
 import { join } from "node:path";
 
 import {
-  type CustomReadonlyEditorProvider,
+  type CancellationToken,
+  type CustomDocumentBackup,
+  type CustomDocumentBackupContext,
+  type CustomDocumentContentChangeEvent,
+  type CustomDocumentOpenContext,
+  type CustomEditorProvider,
   commands,
   type Disposable,
+  EventEmitter,
   type ExtensionContext,
   Uri,
   type Webview,
@@ -30,6 +39,12 @@ import {
 
 import rawViewerHtml from "../assets/pdf.js/web/viewer.html";
 import { disposeAll } from "./disposable";
+import {
+  type HostToWebview,
+  isOpenLinkMessage,
+  isWebviewToHost,
+  type WebviewToHost,
+} from "./messages";
 import { PDFDocument } from "./pdf-document";
 import { escapeAttribute } from "./utils";
 import { WebviewCollection } from "./webview-collection";
@@ -46,13 +61,25 @@ const viewerHtml = rawViewerHtml
 
 const resourcePathRegex = /\/[^/]+?\.\w+$/u;
 
+/** How long to wait for the webview to serialize the document. */
+const DATA_TIMEOUT_MS = 60_000;
+
 function withTrailingSlash(uri: Uri): string {
   const value = uri.toString();
   return value.endsWith("/") ? value : `${value}/`;
 }
 
-export class PDFViewerProvider implements CustomReadonlyEditorProvider {
-  static readonly viewType = "pdf.view";
+function parentDirectory(uri: Uri): Uri {
+  return uri.with({ path: uri.path.replace(resourcePathRegex, "/") });
+}
+
+interface PendingRequest {
+  resolve: (data: Uint8Array) => void;
+  reject: (error: Error) => void;
+}
+
+export class PDFViewerProvider implements CustomEditorProvider<PDFDocument> {
+  static readonly viewType = "pdfBilingual.view";
 
   static register(context: ExtensionContext) {
     return window.registerCustomEditorProvider(
@@ -60,6 +87,8 @@ export class PDFViewerProvider implements CustomReadonlyEditorProvider {
       new PDFViewerProvider(context),
       {
         supportsMultipleEditorsPerDocument: false,
+        // Unsaved annotation edits and the panel state live in the webview.
+        webviewOptions: { retainContextWhenHidden: true },
       },
     );
   }
@@ -69,12 +98,22 @@ export class PDFViewerProvider implements CustomReadonlyEditorProvider {
 
   private readonly extensionRoot: Uri;
 
+  private readonly _onDidChangeCustomDocument = new EventEmitter<
+    CustomDocumentContentChangeEvent<PDFDocument>
+  >();
+  readonly onDidChangeCustomDocument = this._onDidChangeCustomDocument.event;
+
+  private nextRequestId = 1;
+  private readonly pendingRequests = new Map<number, PendingRequest>();
+
   constructor(context: ExtensionContext) {
     this.extensionRoot = Uri.file(context.extensionPath);
   }
 
-  openCustomDocument(uri: Uri) {
-    const document = new PDFDocument(uri);
+  openCustomDocument(uri: Uri, openContext: CustomDocumentOpenContext) {
+    const backupUri =
+      openContext.backupId === undefined ? undefined : Uri.parse(openContext.backupId);
+    const document = new PDFDocument(uri, backupUri);
 
     const listeners: Disposable[] = [];
 
@@ -82,14 +121,97 @@ export class PDFViewerProvider implements CustomReadonlyEditorProvider {
       document.onDidChange((e) => {
         // Update all webviews when the document changes
         for (const webviewPanel of this.webviews.get(e)) {
-          webviewPanel.webview.postMessage({ action: "reload" });
+          this.post(webviewPanel.webview, { type: "reload" });
         }
+      }),
+      document.onDidChangeContent(() => {
+        this._onDidChangeCustomDocument.fire({ document });
       }),
     );
 
     document.onDidDelete(() => disposeAll(listeners));
 
     return document;
+  }
+
+  async saveCustomDocument(document: PDFDocument, cancellation: CancellationToken): Promise<void> {
+    const data = await this.requestData(document);
+    if (cancellation.isCancellationRequested) {
+      return;
+    }
+    await document.write(document.uri, data);
+    document.markSaved();
+    for (const webviewPanel of this.webviews.get(document.uri)) {
+      this.post(webviewPanel.webview, { type: "saved" });
+    }
+  }
+
+  async saveCustomDocumentAs(
+    document: PDFDocument,
+    destination: Uri,
+    cancellation: CancellationToken,
+  ): Promise<void> {
+    const data = await this.requestData(document);
+    if (cancellation.isCancellationRequested) {
+      return;
+    }
+    await document.write(destination, data);
+  }
+
+  async revertCustomDocument(document: PDFDocument): Promise<void> {
+    document.markSaved();
+    for (const webviewPanel of this.webviews.get(document.uri)) {
+      this.post(webviewPanel.webview, { type: "reload" });
+    }
+  }
+
+  async backupCustomDocument(
+    document: PDFDocument,
+    context: CustomDocumentBackupContext,
+    cancellation: CancellationToken,
+  ): Promise<CustomDocumentBackup> {
+    const data = await this.requestData(document);
+    if (!cancellation.isCancellationRequested) {
+      await document.write(context.destination, data);
+    }
+    return {
+      id: context.destination.toString(),
+      delete: () => {
+        void workspace.fs.delete(context.destination).then(undefined, () => {
+          // The backup may already be gone.
+        });
+      },
+    };
+  }
+
+  private post(webview: Webview, message: HostToWebview) {
+    void webview.postMessage(message);
+  }
+
+  /** Asks the webview for the document bytes with all annotation edits applied. */
+  private requestData(document: PDFDocument): Promise<Uint8Array> {
+    const [webviewPanel] = this.webviews.get(document.uri);
+    if (webviewPanel === undefined) {
+      return Promise.reject(new Error("The PDF viewer is not open."));
+    }
+    const requestId = this.nextRequestId++;
+    return new Promise<Uint8Array>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingRequests.delete(requestId);
+        reject(new Error("Timed out waiting for the PDF viewer to serialize the document."));
+      }, DATA_TIMEOUT_MS);
+      this.pendingRequests.set(requestId, {
+        resolve: (data) => {
+          clearTimeout(timer);
+          resolve(data);
+        },
+        reject: (error) => {
+          clearTimeout(timer);
+          reject(error);
+        },
+      });
+      this.post(webviewPanel.webview, { type: "getData", requestId });
+    });
   }
 
   private UriResolver(webview: Webview) {
@@ -102,13 +224,11 @@ export class PDFViewerProvider implements CustomReadonlyEditorProvider {
     this.webviews.add(document.uri, webviewPanel);
 
     // Setup initial content for the webview
-    const resourceRoot = document.uri.with({
-      path: document.uri.path.replace(resourcePathRegex, "/"),
-    });
+    const resourceRoot = parentDirectory(document.uri);
     const webviewResourceRoot = withTrailingSlash(webviewPanel.webview.asWebviewUri(resourceRoot));
     webviewPanel.webview.options = {
       enableScripts: true,
-      localResourceRoots: [resourceRoot, this.extensionRoot],
+      localResourceRoots: [resourceRoot, parentDirectory(document.dataUri), this.extensionRoot],
     };
 
     webviewPanel.webview.html = this.getHtmlForWebview(
@@ -118,12 +238,11 @@ export class PDFViewerProvider implements CustomReadonlyEditorProvider {
     );
 
     webviewPanel.webview.onDidReceiveMessage(async (message: unknown) => {
-      if (
-        typeof message !== "object" ||
-        message === null ||
-        !("open" in message) ||
-        typeof message.open !== "string"
-      ) {
+      if (isWebviewToHost(message)) {
+        await this.onWebviewMessage(document, message);
+        return;
+      }
+      if (!isOpenLinkMessage(message)) {
         return;
       }
 
@@ -151,16 +270,38 @@ export class PDFViewerProvider implements CustomReadonlyEditorProvider {
     });
   }
 
+  private async onWebviewMessage(document: PDFDocument, message: WebviewToHost) {
+    switch (message.type) {
+      case "dirty":
+        document.markDirty();
+        break;
+      case "requestSave":
+        // Route through VS Code so the editor's dirty state stays in sync.
+        // Ctrl+S may reach both VS Code and pdf.js; save only once.
+        if (document.isDirty) {
+          await commands.executeCommand("workbench.action.files.save");
+        }
+        break;
+      case "data":
+        this.pendingRequests.get(message.requestId)?.resolve(message.data);
+        this.pendingRequests.delete(message.requestId);
+        break;
+      case "dataError":
+        this.pendingRequests.get(message.requestId)?.reject(new Error(message.message));
+        this.pendingRequests.delete(message.requestId);
+        break;
+    }
+  }
+
   private getHtmlForWebview(document: PDFDocument, webview: Webview, resourceRoot: Uri): string {
     const resolveUri = this.UriResolver(webview);
-    const resolveAssetURI = (...paths: string[]) => resolveUri("assets", ...paths);
     const resolvePdfJsURI = (...paths: string[]) => resolveUri("assets", "pdf.js", ...paths);
 
     const cspSource = webview.cspSource;
 
-    const config = workspace.getConfiguration("pdf", document.uri);
+    const config = workspace.getConfiguration("pdfBilingual", document.uri);
     const settings = {
-      url: `${webview.asWebviewUri(document.uri)}`,
+      url: `${webview.asWebviewUri(document.dataUri)}`,
       docBaseUrl: `${webview.asWebviewUri(document.uri)}`,
       resourceRoot: withTrailingSlash(webview.asWebviewUri(resourceRoot)),
       defaultZoomValue: config.get<string>("defaultZoomValue", "auto"),
@@ -184,16 +325,13 @@ export class PDFViewerProvider implements CustomReadonlyEditorProvider {
 <title>PDF.js viewer</title>
 
 <link rel="stylesheet" href="${resolvePdfJsURI("web", "viewer.css")}">
-<link rel="stylesheet" href="${resolveAssetURI("main.css")}">
+<link rel="stylesheet" href="${resolveUri("assets", "main.css")}">
+<link rel="stylesheet" href="${resolveUri("assets", "panel.css")}">
 
 <script src="${resolvePdfJsURI("build", "pdf.mjs")}" type="module"></script>
-<script src="${resolveAssetURI("main.mjs")}" type="module"></script>
+<script src="${resolveUri("dist", "webview", "main.mjs")}" type="module"></script>
 
-<link rel="resource" type="application/l10n" href="${resolvePdfJsURI(
-          "web",
-          "locale",
-          "locale.json",
-        )}">`,
+<link rel="resource" type="application/l10n" href="${resolvePdfJsURI("web", "locale", "locale.json")}">`,
       )
       .trim();
   }

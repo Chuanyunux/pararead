@@ -1,44 +1,42 @@
-# Visual Studio Code PDF Viewer
+# PDF Bilingual Reader
 
-A lightweight, reliable PDF viewer for Visual Studio Code, powered by [Mozilla PDF.js](https://mozilla.github.io/pdf.js/).
+A VS Code extension for reading English papers with sentence-level Chinese
+translations, built on [vscode-pdf](https://github.com/mathematic-inc/vscode-pdf)
+and [Mozilla PDF.js](https://mozilla.github.io/pdf.js/).
 
-**GitHub**: [mathematic-inc/vscode-pdf](https://github.com/mathematic-inc/vscode-pdf)
+- Full PDF.js viewer, including the annotation editors (highlight, free text,
+  ink, stamp). Annotations are saved back into the PDF with `Ctrl+S`.
+- **Alt+click** a sentence in the PDF to highlight it and show its translation
+  in the panel on the right; click a sentence in the panel to jump back.
+- The panel can be resized with the splitter and toggled with the **译** button
+  in the toolbar.
 
-## Overview
+Status: milestone M1 — sentence segmentation and linking work; the panel shows
+placeholder translations until the translation service lands (M2). See
+`pdf-bilingual-reader-需求.md` for the full plan.
 
-This extension runs the latest `pdf.js` underneath. Try the [PDF.js demo viewer](https://mozilla.github.io/pdf.js/web/viewer.html).
+## Development
 
-## Why?
+```sh
+pnpm install
+pnpm run build      # extension + webview bundles
+pnpm test           # segmenter unit tests
+pnpm run check      # typecheck, lint, format check
+```
 
-Most extensions currently in the marketplace have problems too deep to fix. These problems include memory leaks, outdated dependencies, and several debouncing issues. A priori, this extension does not have these issues and seeks to provide only viewing capabilities. Nothing more.
+Press `F5` in VS Code to launch an Extension Development Host.
 
-## Installation
+Without VS Code, the webview can be exercised in a browser:
+`pnpm run harness`, then open `http://localhost:5178/?pdf=papers/<file>.pdf`.
+Messages to the extension host are recorded in `window.__hostMessages`.
 
-Install from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=mathematic.vscode-pdf) or from the [Open VSX Registry](https://open-vsx.org/extension/mathematic/vscode-pdf).
+Evaluating the segmenter on a new paper:
 
-The current PDF.js viewer requires VS Code 1.95 or later.
-
-Alternatively, search for **"PDF Viewer"** in the Extensions view (`Ctrl+Shift+X` / `Cmd+Shift+X`) inside VS Code.
-
-## Usage
-
-Once installed, open any `.pdf` file in VS Code. The extension automatically registers as the default editor for PDF files and renders them using the built-in PDF.js viewer.
-
-## Contributing
-
-Start with a [Discussion](https://github.com/mathematic-inc/vscode-pdf/discussions/new), not a pull request. A
-Mathematic maintainer will review the proposal. If we decide to implement it, a
-maintainer or one of our AI agents will open the pull request. When Mathematic
-implements a proposal, the implementation pull request will link to the
-Discussion and credit its original author. GitHub restricts pull request creation
-to Mathematic maintainers, repository collaborators with write, maintain, or
-admin access, and authorized maintenance agents.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full policy.
-
-## Support us
-
-If you find this extension helpful, please consider [supporting its development through GitHub Sponsors](https://github.com/sponsors/mathematic-inc). Your support helps maintain and improve this extension.
+```sh
+pnpm run fixtures papers/<file>.pdf test/fixtures
+pnpm run segment test/fixtures/<file>.p3.json            # one page, full output
+pnpm run segment test/fixtures/<file>.p*.json --sample 50  # random sample
+```
 
 ## Updating PDF.js
 
@@ -50,8 +48,8 @@ If you find this extension helpful, please consider [supporting its development 
 
 To keep the current PDF.js version and add patches, run with the `--update-patches` flag. The script stops after applying the current patches so you can modify `assets/pdf.js`. When you finish, it creates a new patch from your changes.
 
-After you prepared your patches you can run the same command again, the second time the patches should apply cleanly and the `assets/pdf.js` should have the updated content you created earlier.
-
 The `prepare_pdfjs.sh` script does not create any commits in this repo, after you are happy with the patches you prepared be sure to commit everything manually.
 
-> This project is free and open-source work by a 501(c)(3) non-profit. If you find it useful, please consider [donating](https://github.com/sponsors/mathematic-inc).
+## License
+
+Apache-2.0. See `LICENSE` and `NOTICE`.
