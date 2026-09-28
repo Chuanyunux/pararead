@@ -123,6 +123,11 @@ dist
 # Bundled dev tools (pnpm run segment)
 .cache/
 
-# Local sample papers (third-party PDFs) and Claude Code local settings
+# Local sample papers (third-party PDFs)
 papers/
-.claude/settings.local.json
+
+# Claude Code local configuration
+.claude/
+
+# Internal planning notes (kept locally)
+pdf-bilingual-reader-需求.md

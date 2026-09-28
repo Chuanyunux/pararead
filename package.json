@@ -2,7 +2,7 @@
   "name": "pdf-bilingual-reader",
   "displayName": "PDF Bilingual Reader",
   "version": "0.1.0",
-  "description": "Sentence-level bilingual (EN→ZH) PDF reader with annotations, based on vscode-pdf and PDF.js.",
+  "description": "Sentence-level bilingual (English → Chinese) PDF reader for papers: hover a sentence to see its translation side by side. Based on vscode-pdf and PDF.js.",
   "categories": [
     "Visualization",
     "Other"
@@ -11,9 +11,20 @@
     "pdf",
     "viewer",
     "translate",
+    "translation",
     "bilingual",
-    "paper"
+    "paper",
+    "chinese",
+    "deepseek"
   ],
+  "homepage": "https://github.com/OWNER/pdf-bilingual-reader#readme",
+  "bugs": {
+    "url": "https://github.com/OWNER/pdf-bilingual-reader/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OWNER/pdf-bilingual-reader.git"
+  },
   "license": "Apache-2.0",
   "author": "chuanyun",
   "publisher": "chuanyun",

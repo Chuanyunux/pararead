@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   ci:
-    name: CI
+    name: Check, test and package
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -29,9 +29,14 @@ jobs:
           cache: pnpm
       - name: Install
         run: pnpm install --frozen-lockfile
-      - name: Package
-        run: pnpm run package
-      - name: Verify VSIX packaging
-        run: pnpm exec vsce package --no-dependencies --out "$RUNNER_TEMP/vscode-pdf.vsix"
-      - name: Audit dependencies
-        run: pnpm audit --audit-level high
+      - name: Typecheck, lint and format check
+        run: pnpm run check
+      - name: Test
+        # Downloads "Attention Is All You Need" from arXiv for the segmenter tests.
+        run: pnpm test
+      - name: Package VSIX
+        run: pnpm exec vsce package --no-dependencies --out "$RUNNER_TEMP/pdf-bilingual-reader.vsix"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pdf-bilingual-reader-vsix
+          path: ${{ runner.temp }}/pdf-bilingual-reader.vsix

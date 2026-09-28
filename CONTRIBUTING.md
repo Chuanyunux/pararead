@@ -1,29 +1,29 @@
-# Contributing
+# Contributing / 贡献指南
 
-Mathematic uses AI agents to maintain this repository. Reviewing an unsolicited
-pull request often takes longer than having an agent implement an agreed
-proposal, so we use a discussion-first process.
+Issues and pull requests are welcome. 欢迎提交 Issue 和 Pull Request。
 
-## Propose a change
-
-1. [Start a Discussion](https://github.com/mathematic-inc/vscode-pdf/discussions/new) describing the problem and your
-   proposed change.
-2. Wait for a Mathematic maintainer to review the proposal.
-3. If we decide to proceed, a Mathematic maintainer or agent will open the pull
-   request.
-
-When Mathematic implements a proposal, the implementation pull request will link
-to the Discussion and credit its original author.
-
-GitHub restricts pull request creation to Mathematic maintainers, repository
-collaborators with write, maintain, or admin access, and authorized maintenance
-agents. Everyone else must use Discussions.
-
-## Local setup
-
-Install the pinned tools and Git hooks before working in the repository:
+## Development / 开发
 
 ```sh
-mise install
-hk install
+pnpm install
+pnpm run build   # extension + webview bundles / 构建扩展与网页视图
+pnpm test        # unit tests; the first run downloads a test paper from arXiv / 首次运行会从 arXiv 下载测试论文
+pnpm run check   # typecheck, lint, format check / 类型检查、lint、格式检查
 ```
+
+Press `F5` in VS Code to launch an Extension Development Host. The webview can
+also be exercised in a browser with `pnpm run harness` (see README).
+
+在 VS Code 中按 `F5` 启动扩展调试窗口；也可以用 `pnpm run harness` 在浏览器中调试网页视图（见 README）。
+
+## Guidelines / 约定
+
+- Run `pnpm run fix` before committing, and keep `pnpm run check` and
+  `pnpm test` green. 提交前运行 `pnpm run fix`，并保证检查和测试通过。
+- Do not commit papers or text extracted from them: most papers may not be
+  redistributed. Test fixtures are generated into `.cache/`.
+  不要提交论文或从论文提取的文本（多数论文不允许再分发），测试数据会生成到 `.cache/`。
+- Changes to PDF.js go through `patches/` (see "Updating PDF.js" in the README).
+  对 PDF.js 的修改请通过 `patches/` 补丁机制。
+- By contributing you agree that your contribution is licensed under the
+  Apache License 2.0. 提交贡献即表示同意以 Apache-2.0 许可发布。
