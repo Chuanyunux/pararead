@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [Semantic Versioning](https://semver.org/).
 
+## [0.1.1] - 2026-09-28
+
+Prepares the extension for the VS Code Marketplace and Open VSX.
+
+### Changed
+
+- Publisher is now `chuanyunux`, so the extension ID is `chuanyunux.pararead`.
+  Settings are unchanged, but the API key has to be set again once and the
+  translation cache starts empty.
+- Marked as a preview release while the version is below 1.0.
+
 ## [0.1.0] - 2026-09-28
 
 First public release of ParaRead (并读). Based on [vscode-pdf](https://github.com/mathematic-inc/vscode-pdf)

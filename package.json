@@ -1,7 +1,7 @@
 {
   "name": "pararead",
   "displayName": "ParaRead: Bilingual PDF Paper Reader",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "并读 · Read English PDF papers sentence by sentence: hover a sentence and its Chinese translation sits right beside it, at the same height. Layout-preserving translation panel, DeepSeek or any OpenAI-compatible API, annotations saved into the PDF.",
   "categories": [
     "Visualization",
@@ -28,8 +28,8 @@
     "url": "https://github.com/Chuanyunux/pararead.git"
   },
   "license": "Apache-2.0",
-  "author": "chuanyun",
-  "publisher": "chuanyun",
+  "author": "Chuanyunux",
+  "publisher": "chuanyunux",
   "main": "./dist/extension.js",
   "scripts": {
     "build": "tsup",
@@ -240,5 +240,6 @@
   "engines": {
     "vscode": "^1.95.0"
   },
-  "icon": "icon.png"
+  "icon": "icon.png",
+  "preview": true
 }
