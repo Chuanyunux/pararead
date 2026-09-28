@@ -23,7 +23,7 @@ import { PDFViewerProvider } from "./pdf-viewer-provider";
 import { TranslationBridge } from "./translation-bridge";
 import { SET_API_KEY_COMMAND, TranslationService } from "./translation/service";
 
-const NO_VIEWER = "请先在 PDF Bilingual Reader 中打开一个 PDF。";
+const NO_VIEWER = "请先在 ParaRead 中打开一个 PDF。";
 
 export function activate(context: ExtensionContext): void {
   const translation = new TranslationService(context);
@@ -34,13 +34,13 @@ export function activate(context: ExtensionContext): void {
     translation,
     PDFViewerProvider.register(provider),
     commands.registerCommand(SET_API_KEY_COMMAND, () => translation.setApiKey()),
-    commands.registerCommand("pdfBilingual.clearCache", () => translation.clearCache()),
-    commands.registerCommand("pdfBilingual.translatePage", () => {
+    commands.registerCommand("pararead.clearCache", () => translation.clearCache()),
+    commands.registerCommand("pararead.translatePage", () => {
       if (!provider.postToActive({ type: "translateCurrentPage" })) {
         void window.showInformationMessage(NO_VIEWER);
       }
     }),
-    commands.registerCommand("pdfBilingual.translateDocument", () => {
+    commands.registerCommand("pararead.translateDocument", () => {
       const webview = provider.activeWebview();
       if (webview === undefined) {
         void window.showInformationMessage(NO_VIEWER);

@@ -1,4 +1,4 @@
-/** Translation settings (`pdfBilingual.*`), independent of the VS Code API. */
+/** Translation settings (`pararead.*`), independent of the VS Code API. */
 
 import type { TranslateRange } from "../messages";
 

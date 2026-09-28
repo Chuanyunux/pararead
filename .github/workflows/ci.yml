@@ -35,8 +35,8 @@ jobs:
         # Downloads "Attention Is All You Need" from arXiv for the segmenter tests.
         run: pnpm test
       - name: Package VSIX
-        run: pnpm exec vsce package --no-dependencies --out "$RUNNER_TEMP/pdf-bilingual-reader.vsix"
+        run: pnpm exec vsce package --no-dependencies --out "$RUNNER_TEMP/pararead.vsix"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: pdf-bilingual-reader-vsix
-          path: ${{ runner.temp }}/pdf-bilingual-reader.vsix
+          name: pararead-vsix
+          path: ${{ runner.temp }}/pararead.vsix

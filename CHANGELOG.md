@@ -6,7 +6,7 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## [0.1.0] - Unreleased
 
-First public release. Based on [vscode-pdf](https://github.com/mathematic-inc/vscode-pdf)
+First public release of ParaRead (并读). Based on [vscode-pdf](https://github.com/mathematic-inc/vscode-pdf)
 0.2.5 (PDF.js 6.2.108).
 
 ### Added

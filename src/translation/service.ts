@@ -26,11 +26,11 @@ import {
   Translator,
 } from "./translator";
 
-const SECRET_KEY = "pdfBilingual.apiKey";
-export const SET_API_KEY_COMMAND = "pdfBilingual.setApiKey";
+const SECRET_KEY = "pararead.apiKey";
+export const SET_API_KEY_COMMAND = "pararead.setApiKey";
 
 function readConfig(): TranslationConfig {
-  const config = workspace.getConfiguration("pdfBilingual");
+  const config = workspace.getConfiguration("pararead");
   return readTranslationConfig((key, fallback) => config.get(key, fallback));
 }
 
@@ -54,12 +54,12 @@ export class TranslationService implements Disposable {
   #missingKeyNotified = false;
 
   readonly #onDidChangeSettings = new EventEmitter<void>();
-  /** Fired when `pdfBilingual.*` settings change. */
+  /** Fired when `pararead.*` settings change. */
   readonly onDidChangeSettings = this.#onDidChangeSettings.event;
 
   constructor(context: ExtensionContext) {
     this.#context = context;
-    this.#log = window.createOutputChannel("PDF Bilingual", { log: true });
+    this.#log = window.createOutputChannel("ParaRead", { log: true });
     this.#config = readConfig();
     this.#cache = new TranslationCache(this.#cacheDir());
 
@@ -67,7 +67,7 @@ export class TranslationService implements Disposable {
       this.#log,
       this.#onDidChangeSettings,
       workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration("pdfBilingual")) {
+        if (e.affectsConfiguration("pararead")) {
           void this.#reset();
           this.#onDidChangeSettings.fire();
         }
@@ -106,7 +106,7 @@ export class TranslationService implements Disposable {
 
   async setApiKey(): Promise<void> {
     const key = await window.showInputBox({
-      title: "PDF Bilingual: 设置 API Key",
+      title: "ParaRead: 设置 API Key",
       prompt: `用于 ${this.#config.baseUrl} 的 API Key，保存在 VS Code 的安全存储中`,
       placeHolder: "sk-...",
       password: true,

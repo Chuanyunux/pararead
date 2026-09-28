@@ -73,7 +73,7 @@ function withTrailingSlash(uri: Uri): string {
 }
 
 function selectOnHover(): boolean {
-  return workspace.getConfiguration("pdfBilingual").get<boolean>("selectOnHover", true);
+  return workspace.getConfiguration("pararead").get<boolean>("selectOnHover", true);
 }
 
 function parentDirectory(uri: Uri): Uri {
@@ -86,7 +86,7 @@ interface PendingRequest {
 }
 
 export class PDFViewerProvider implements CustomEditorProvider<PDFDocument> {
-  static readonly viewType = "pdfBilingual.view";
+  static readonly viewType = "pararead.view";
 
   static register(provider: PDFViewerProvider) {
     return window.registerCustomEditorProvider(PDFViewerProvider.viewType, provider, {
@@ -348,7 +348,7 @@ export class PDFViewerProvider implements CustomEditorProvider<PDFDocument> {
 
     const cspSource = webview.cspSource;
 
-    const config = workspace.getConfiguration("pdfBilingual", document.uri);
+    const config = workspace.getConfiguration("pararead", document.uri);
     const settings = {
       url: `${webview.asWebviewUri(document.dataUri)}`,
       docBaseUrl: `${webview.asWebviewUri(document.uri)}`,

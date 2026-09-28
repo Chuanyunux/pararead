@@ -39,8 +39,8 @@ jobs:
       - name: Typecheck, lint and test
         run: pnpm run check && pnpm test
       - name: Package VSIX
-        run: pnpm exec vsce package --no-dependencies --out "pdf-bilingual-reader-${{ github.ref_name }}.vsix"
+        run: pnpm exec vsce package --no-dependencies --out "pararead-${{ github.ref_name }}.vsix"
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
-          files: pdf-bilingual-reader-${{ github.ref_name }}.vsix
+          files: pararead-${{ github.ref_name }}.vsix
           generate_release_notes: true

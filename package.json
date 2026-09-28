@@ -1,29 +1,31 @@
 {
-  "name": "pdf-bilingual-reader",
-  "displayName": "PDF Bilingual Reader",
+  "name": "pararead",
+  "displayName": "ParaRead: Bilingual PDF Paper Reader",
   "version": "0.1.0",
-  "description": "Sentence-level bilingual (English → Chinese) PDF reader for papers: hover a sentence to see its translation side by side. Based on vscode-pdf and PDF.js.",
+  "description": "并读 · Read English PDF papers sentence by sentence: hover a sentence and its Chinese translation sits right beside it, at the same height. Layout-preserving translation panel, DeepSeek or any OpenAI-compatible API, annotations saved into the PDF.",
   "categories": [
     "Visualization",
     "Other"
   ],
   "keywords": [
     "pdf",
-    "viewer",
+    "paper",
     "translate",
     "translation",
     "bilingual",
-    "paper",
     "chinese",
-    "deepseek"
+    "arxiv",
+    "deepseek",
+    "reader",
+    "pararead"
   ],
-  "homepage": "https://github.com/OWNER/pdf-bilingual-reader#readme",
+  "homepage": "https://github.com/OWNER/pararead#readme",
   "bugs": {
-    "url": "https://github.com/OWNER/pdf-bilingual-reader/issues"
+    "url": "https://github.com/OWNER/pararead/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/OWNER/pdf-bilingual-reader.git"
+    "url": "https://github.com/OWNER/pararead.git"
   },
   "license": "Apache-2.0",
   "author": "chuanyun",
@@ -47,10 +49,10 @@
   },
   "contributes": {
     "configuration": {
-      "title": "PDF Bilingual Reader",
+      "title": "ParaRead",
       "type": "object",
       "properties": {
-        "pdfBilingual.defaultZoomValue": {
+        "pararead.defaultZoomValue": {
           "type": "string",
           "default": "auto",
           "scope": "resource",
@@ -80,7 +82,7 @@
           ],
           "description": "Default zoom level when opening a PDF."
         },
-        "pdfBilingual.sidebarViewOnLoad": {
+        "pararead.sidebarViewOnLoad": {
           "type": "number",
           "default": 0,
           "scope": "resource",
@@ -102,36 +104,36 @@
           ],
           "description": "Sidebar panel to show when opening a PDF."
         },
-        "pdfBilingual.baseUrl": {
+        "pararead.baseUrl": {
           "type": "string",
           "default": "https://api.deepseek.com",
           "markdownDescription": "OpenAI 兼容翻译接口地址（不含 `/chat/completions`）。本地 Ollama 可用 `http://localhost:11434/v1`。"
         },
-        "pdfBilingual.model": {
+        "pararead.model": {
           "type": "string",
           "default": "deepseek-flash",
           "markdownDescription": "翻译模型，例如 `deepseek-flash`、`deepseek-v4-pro`。"
         },
-        "pdfBilingual.temperature": {
+        "pararead.temperature": {
           "type": "number",
           "default": 0.7,
           "minimum": 0,
           "maximum": 2,
           "description": "翻译温度。较低的值让术语译法更一致。"
         },
-        "pdfBilingual.requestTimeout": {
+        "pararead.requestTimeout": {
           "type": "number",
           "default": 60000,
           "minimum": 1000,
           "description": "单次请求超时（毫秒）。"
         },
-        "pdfBilingual.maxCharsPerRequest": {
+        "pararead.maxCharsPerRequest": {
           "type": "number",
           "default": 3000,
           "minimum": 200,
           "description": "单次请求的原文字符上限；同一段落尽量放在同一次请求中。"
         },
-        "pdfBilingual.glossary": {
+        "pararead.glossary": {
           "type": "object",
           "default": {},
           "additionalProperties": {
@@ -139,7 +141,7 @@
           },
           "markdownDescription": "术语表：英文术语 → 译法，例如 `{\"attention\": \"注意力\", \"token\": \"token\"}`。修改后相关句子会重新翻译。"
         },
-        "pdfBilingual.translateRange": {
+        "pararead.translateRange": {
           "type": "string",
           "default": "nearby",
           "enum": [
@@ -154,12 +156,12 @@
           ],
           "description": "阅读时自动翻译的范围。"
         },
-        "pdfBilingual.cacheDir": {
+        "pararead.cacheDir": {
           "type": "string",
           "default": "",
           "description": "自定义译文缓存目录；留空使用扩展的全局存储目录。"
         },
-        "pdfBilingual.extraBody": {
+        "pararead.extraBody": {
           "type": "object",
           "default": {
             "thinking": {
@@ -168,7 +170,7 @@
           },
           "markdownDescription": "附加到请求体的字段。默认关闭 DeepSeek 的思考模式；使用其他服务时可改为 `{}`。"
         },
-        "pdfBilingual.selectOnHover": {
+        "pararead.selectOnHover": {
           "type": "boolean",
           "default": true,
           "description": "鼠标在句子上停留片刻即选中（高亮、箭头并与译文对齐）；关闭后仅单击或 Alt+单击选中。"
@@ -177,8 +179,8 @@
     },
     "customEditors": [
       {
-        "viewType": "pdfBilingual.view",
-        "displayName": "PDF Bilingual Reader",
+        "viewType": "pararead.view",
+        "displayName": "ParaRead (bilingual PDF reader)",
         "selector": [
           {
             "filenamePattern": "*.pdf"
@@ -188,35 +190,35 @@
     ],
     "commands": [
       {
-        "command": "pdfBilingual.setApiKey",
+        "command": "pararead.setApiKey",
         "title": "设置 API Key",
-        "category": "PDF Bilingual"
+        "category": "ParaRead"
       },
       {
-        "command": "pdfBilingual.translatePage",
+        "command": "pararead.translatePage",
         "title": "翻译当前页",
-        "category": "PDF Bilingual"
+        "category": "ParaRead"
       },
       {
-        "command": "pdfBilingual.translateDocument",
+        "command": "pararead.translateDocument",
         "title": "翻译整篇",
-        "category": "PDF Bilingual"
+        "category": "ParaRead"
       },
       {
-        "command": "pdfBilingual.clearCache",
+        "command": "pararead.clearCache",
         "title": "清除翻译缓存",
-        "category": "PDF Bilingual"
+        "category": "ParaRead"
       }
     ],
     "menus": {
       "commandPalette": [
         {
-          "command": "pdfBilingual.translatePage",
-          "when": "activeCustomEditorId == pdfBilingual.view"
+          "command": "pararead.translatePage",
+          "when": "activeCustomEditorId == pararead.view"
         },
         {
-          "command": "pdfBilingual.translateDocument",
-          "when": "activeCustomEditorId == pdfBilingual.view"
+          "command": "pararead.translateDocument",
+          "when": "activeCustomEditorId == pararead.view"
         }
       ]
     }
