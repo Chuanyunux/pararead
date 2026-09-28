@@ -2,14 +2,12 @@
 
 :root {
   --bilingual-panel-width: 420px;
-  --bilingual-highlight: rgb(255 200 0 / 0.35);
-  --bilingual-highlight-border: rgb(230 160 0 / 0.9);
-  /* Selected sentence on the PDF page. */
+  /* Arrow from the sentence to its translation: orange, readable on light and dark. */
+  --bilingual-connector: #ff8c1a;
+  /* Selected sentence on the PDF page and in the panel: same orange. */
   --bilingual-select: var(--bilingual-connector);
   --bilingual-select-outline: color-mix(in srgb, var(--bilingual-select) 80%, transparent);
   --bilingual-select-fill: color-mix(in srgb, var(--bilingual-select) 16%, transparent);
-  /* Arrow from the sentence to its translation: amber, readable on light and dark. */
-  --bilingual-connector: #f2b705;
 }
 
 body.bilingualPanelOpen #outerContainer {
@@ -226,9 +224,10 @@ body.bilingualResizing #outerContainer {
   background: var(--vscode-list-hoverBackground, rgb(128 128 128 / 0.15));
 }
 
+/* Same orange as the PDF selection and the arrow. */
 .bilingualSentence.active {
-  background: var(--vscode-editor-findMatchHighlightBackground, var(--bilingual-highlight));
-  outline: 1px solid var(--vscode-editor-findMatchBorder, var(--bilingual-highlight-border));
+  background: color-mix(in srgb, var(--bilingual-select) 22%, transparent);
+  outline: 1px solid var(--bilingual-select-outline);
 }
 
 /* Not translated yet: the original, dimmed, keeps the layout complete. */
@@ -316,22 +315,19 @@ body.bilingualResizing #outerContainer {
 }
 
 /*
- * Faint amber fill (same color as the arrow) with an outline and underline;
- * the outline and underline tell it apart from pdf.js highlight annotations,
- * which are plain fills.
+ * Faint orange fill with an outline (same color as the arrow); the outline
+ * tells it apart from pdf.js highlight annotations, which are plain fills.
  */
 .bilingualHighlight {
   position: absolute;
   border-radius: 2px;
   background: var(--bilingual-select-fill);
   outline: 1px solid var(--bilingual-select-outline);
-  box-shadow: inset 0 -2px 0 var(--bilingual-select);
 }
 
 @media (forced-colors: active) {
   .bilingualHighlight {
     background: transparent;
     outline-color: Highlight;
-    box-shadow: inset 0 -2px 0 Highlight;
   }
 }
