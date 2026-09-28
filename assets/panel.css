@@ -4,6 +4,12 @@
   --bilingual-panel-width: 420px;
   --bilingual-highlight: rgb(255 200 0 / 0.35);
   --bilingual-highlight-border: rgb(230 160 0 / 0.9);
+  /* Selected sentence on the PDF page. */
+  --bilingual-select: var(--bilingual-connector);
+  --bilingual-select-outline: color-mix(in srgb, var(--bilingual-select) 80%, transparent);
+  --bilingual-select-fill: color-mix(in srgb, var(--bilingual-select) 16%, transparent);
+  /* Arrow from the sentence to its translation: amber, readable on light and dark. */
+  --bilingual-connector: #f2b705;
 }
 
 body.bilingualPanelOpen #outerContainer {
@@ -68,79 +74,224 @@ body.bilingualResizing #outerContainer {
   font-weight: 600;
 }
 
+.bilingualHeaderTools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .bilingualPageLabel {
   color: var(--vscode-descriptionForeground, GrayText);
+}
+
+.bilingualHeaderButton {
+  padding: 1px 8px;
+  border: 1px solid var(--vscode-button-border, var(--vscode-panel-border, rgb(128 128 128 / 0.45)));
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.bilingualHeaderButton[aria-pressed="true"] {
+  background: var(--vscode-button-secondaryBackground, rgb(128 128 128 / 0.25));
 }
 
 .bilingualBody {
   flex: 1;
   overflow-y: auto;
-  padding: 4px 12px 24px;
+  padding-inline: 16px;
+}
+
+/* Room above and below so the first and last lines can be aligned with the PDF. */
+.bilingualContent {
+  padding-block: 40vh;
 }
 
 .bilingualEmpty {
   color: var(--vscode-descriptionForeground, GrayText);
 }
 
-.bilingualPageHeading {
-  position: sticky;
-  top: 0;
-  margin: 12px 0 4px;
-  padding-block: 4px;
-  font-size: 0.85em;
-  font-weight: 600;
+/* Document-like typography. */
+.bilingualPage {
+  line-height: 1.75;
+}
+
+.bilingualPageDivider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 0 8px;
+  font-size: 0.8em;
   color: var(--vscode-descriptionForeground, GrayText);
-  background: var(--vscode-sideBar-background, var(--vscode-editor-background, Canvas));
+}
+
+.bilingualPageDivider::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--vscode-panel-border, rgb(128 128 128 / 0.35));
 }
 
 .bilingualBlock {
-  margin-block: 0 12px;
+  margin-block: 0 0.9em;
 }
 
-.bilingualSentence {
-  padding: 4px 6px;
+.bilingualBlock.paragraph .bilingualTarget {
+  text-indent: 2em;
+}
+
+.bilingualBlock.heading {
+  margin-block: 1.2em 0.6em;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.bilingualBlock.heading[data-level="1"] {
+  font-size: 1.45em;
+  text-align: center;
+}
+
+.bilingualBlock.heading[data-level="2"] {
+  font-size: 1.2em;
+}
+
+.bilingualBlock.heading[data-level="3"] {
+  font-size: 1.05em;
+}
+
+.bilingualBlock.list {
+  margin-block-end: 0.4em;
+  padding-inline-start: 1.5em;
+  text-indent: -1.5em;
+}
+
+.bilingualBlock.caption {
+  font-size: 0.9em;
+  color: var(--vscode-descriptionForeground, GrayText);
+  padding-inline: 1em;
+}
+
+.bilingualBlock.note {
+  font-size: 0.85em;
+  border-top: 1px solid var(--vscode-panel-border, rgb(128 128 128 / 0.25));
+  padding-top: 0.3em;
+}
+
+.bilingualFigure {
+  margin-block: 0 0.9em;
+  padding: 2px 8px;
+  border: 1px dashed var(--vscode-panel-border, rgb(128 128 128 / 0.45));
   border-radius: 4px;
-  border: 1px solid transparent;
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground, GrayText);
+  text-align: center;
+}
+
+.bilingualCode {
+  margin-block: 0 0.9em;
+  padding: 6px 8px;
+  overflow-x: auto;
+  border-radius: 4px;
+  background: var(--vscode-textCodeBlock-background, rgb(128 128 128 / 0.12));
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.85em;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+/* Original paragraph under the translation ("原文" toggle). */
+.bilingualSource {
+  display: none;
+  margin-top: 0.25em;
+  font-size: 0.85em;
+  line-height: 1.5;
+  color: var(--vscode-descriptionForeground, GrayText);
+  text-indent: 0;
+}
+
+.bilingualPanel.showSource .bilingualSource {
+  display: block;
+}
+
+/* Sentences flow inline inside their paragraph. */
+.bilingualSentence {
+  border-radius: 3px;
   cursor: pointer;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 .bilingualSentence:hover {
-  background: var(--vscode-list-hoverBackground, rgb(128 128 128 / 0.12));
-}
-
-.bilingualSentence:focus-visible {
-  outline: 1px solid var(--vscode-focusBorder, #0078d4);
+  background: var(--vscode-list-hoverBackground, rgb(128 128 128 / 0.15));
 }
 
 .bilingualSentence.active {
   background: var(--vscode-editor-findMatchHighlightBackground, var(--bilingual-highlight));
-  border-color: var(--vscode-editor-findMatchBorder, var(--bilingual-highlight-border));
+  outline: 1px solid var(--vscode-editor-findMatchBorder, var(--bilingual-highlight-border));
 }
 
-.bilingualSource {
+/* Not translated yet: the original, dimmed, keeps the layout complete. */
+.bilingualSentence[data-status="none"],
+.bilingualSentence[data-status="pending"] {
   color: var(--vscode-descriptionForeground, GrayText);
-  font-size: 0.9em;
-  line-height: 1.4;
 }
 
-.bilingualTarget {
-  margin-top: 2px;
-  line-height: 1.6;
+.bilingualSentence[data-status="pending"] {
+  animation: bilingualPending 1.2s ease-in-out infinite alternate;
 }
 
-.bilingualTarget[data-status="none"],
-.bilingualTarget[data-status="pending"] {
-  color: var(--vscode-descriptionForeground, GrayText);
-  font-size: 0.9em;
+@keyframes bilingualPending {
+  from {
+    opacity: 0.45;
+  }
+  to {
+    opacity: 0.9;
+  }
 }
 
-.bilingualTarget[data-status="pending"] {
-  font-style: italic;
+@media (prefers-reduced-motion: reduce) {
+  .bilingualSentence[data-status="pending"] {
+    animation: none;
+    opacity: 0.6;
+  }
 }
 
-.bilingualTarget[data-status="error"] {
-  color: var(--vscode-errorForeground, #f14c4c);
-  font-size: 0.9em;
+.bilingualSentence[data-status="error"] {
+  text-decoration: underline wavy var(--vscode-errorForeground, #f14c4c);
+  text-underline-offset: 3px;
+}
+
+/* Arrow from the selected sentence to its translation. */
+.bilingualConnector {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 50;
+  overflow: visible;
+}
+
+.bilingualConnector path {
+  fill: none;
+  stroke: var(--bilingual-connector);
+  stroke-width: 1.5;
+  opacity: 0.75;
+}
+
+.bilingualConnector.pinned path {
+  stroke-width: 2;
+  opacity: 0.95;
+}
+
+.bilingualConnector.offscreen path {
+  stroke-dasharray: 4 3;
+}
+
+.bilingualConnector marker path {
+  fill: var(--bilingual-connector);
+  stroke: none;
 }
 
 /* Toolbar toggle: a text button, without pdf.js' icon mask. */
@@ -164,18 +315,23 @@ body.bilingualResizing #outerContainer {
   z-index: 3;
 }
 
+/*
+ * Faint amber fill (same color as the arrow) with an outline and underline;
+ * the outline and underline tell it apart from pdf.js highlight annotations,
+ * which are plain fills.
+ */
 .bilingualHighlight {
   position: absolute;
-  background: var(--bilingual-highlight);
-  outline: 1px solid var(--bilingual-highlight-border);
   border-radius: 2px;
-  mix-blend-mode: multiply;
+  background: var(--bilingual-select-fill);
+  outline: 1px solid var(--bilingual-select-outline);
+  box-shadow: inset 0 -2px 0 var(--bilingual-select);
 }
 
 @media (forced-colors: active) {
   .bilingualHighlight {
-    background: Highlight;
-    mix-blend-mode: normal;
-    opacity: 0.4;
+    background: transparent;
+    outline-color: Highlight;
+    box-shadow: inset 0 -2px 0 Highlight;
   }
 }

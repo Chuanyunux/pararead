@@ -19,7 +19,9 @@ for (const file of files) {
   const { blocks } = segmenter.segmentPage(input);
   for (const block of blocks) {
     if (sample === 0) {
-      console.log(`\n## ${block.id} [${block.kind}]`);
+      console.log(
+        `\n## ${block.id} [${block.role}${block.level === undefined ? "" : ` h${block.level}`}]`,
+      );
       if (block.kind === "code") {
         console.log(`  ${block.text.slice(0, 100)}`);
       }

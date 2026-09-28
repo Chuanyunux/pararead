@@ -6,8 +6,17 @@ and [Mozilla PDF.js](https://mozilla.github.io/pdf.js/).
 
 - Full PDF.js viewer, including the annotation editors (highlight, free text,
   ink, stamp). Annotations are saved back into the PDF with `Ctrl+S`.
-- **Alt+click** a sentence in the PDF to highlight it and show its translation
-  in the panel on the right; click a sentence in the panel to jump back.
+- The translation panel on the right is typeset like the paper: headings,
+  paragraphs, lists, captions, footnotes and code listings, page by page. The
+  **原文** button shows the original under each paragraph.
+- **Hover** over a sentence to select it (`pdfBilingual.selectOnHover`): it is
+  highlighted, an arrow points to its translation, and the translation is
+  scrolled level with it. **Click** (or Alt+click) selects it too and translates
+  its paragraph; hovering keeps working afterwards. Clicking empty space or
+  `Esc` clears the selection. Hovering or clicking a translation works the other
+  way round.
+- Scrolling the PDF scrolls the translation paragraph by paragraph; scrolling
+  the panel by hand pauses this briefly.
 - The panel can be resized with the splitter and toggled with the **译** button
   in the toolbar.
 - Translations come from any OpenAI-compatible API — DeepSeek by default — and

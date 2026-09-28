@@ -156,6 +156,11 @@
             }
           },
           "markdownDescription": "附加到请求体的字段。默认关闭 DeepSeek 的思考模式；使用其他服务时可改为 `{}`。"
+        },
+        "pdfBilingual.selectOnHover": {
+          "type": "boolean",
+          "default": true,
+          "description": "鼠标在句子上停留片刻即选中（高亮、箭头并与译文对齐）；关闭后仅单击或 Alt+单击选中。"
         }
       }
     },

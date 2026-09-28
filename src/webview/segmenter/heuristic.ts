@@ -17,6 +17,7 @@ import {
 } from "./protect";
 import type {
   Block,
+  BlockRole,
   PageSegmentation,
   PageTextInput,
   Rect,
@@ -74,6 +75,7 @@ export class HeuristicSegmenter implements Segmenter {
     const frags = toFragments(input);
     const lines = groupLines(frags);
     const blockLines = groupBlocks(lines);
+    const bodySize = dominantSize(lines);
 
     const blocks: Block[] = [];
     for (const [i, group] of blockLines.entries()) {
@@ -81,15 +83,101 @@ export class HeuristicSegmenter implements Segmenter {
       const mono = group.filter((l) => l.mono).length * 2 > group.length;
       const glyphs = buildGlyphs(group);
       const { text, starts } = glyphText(glyphs);
+      const lineRects = group.map(lineRect);
       if (mono) {
-        blocks.push({ id, page: input.page, kind: "code", text, sentences: [] });
+        blocks.push({
+          id,
+          page: input.page,
+          kind: "code",
+          role: "code",
+          // Code keeps its line breaks.
+          text: group.map((line) => glyphText(buildGlyphs([line])).text).join("\n"),
+          sentences: [],
+          lines: lineRects,
+        });
         continue;
       }
       const sentences = splitSentences(input, id, group, glyphs, text, starts);
-      blocks.push({ id, page: input.page, kind: "text", text, sentences });
+      const { role, level } = classify(group, text, bodySize);
+      blocks.push({
+        id,
+        page: input.page,
+        kind: "text",
+        role,
+        ...(level === undefined ? {} : { level }),
+        text,
+        sentences,
+        lines: lineRects,
+      });
     }
     return { page: input.page, blocks };
   }
+}
+
+function lineRect(line: Line): Rect {
+  return { x: line.x0, y: line.y - 0.25 * line.size, w: line.x1 - line.x0, h: 1.2 * line.size };
+}
+
+/** Font size carrying the most characters on the page: the body text size. */
+function dominantSize(lines: Line[]): number {
+  const chars = new Map<number, number>();
+  for (const line of lines) {
+    if (!line.mono) {
+      const size = Math.round(line.size * 2) / 2;
+      chars.set(size, (chars.get(size) ?? 0) + line.text.length);
+    }
+  }
+  let best = 0;
+  let bestChars = -1;
+  for (const [size, count] of chars) {
+    if (count > bestChars) {
+      best = size;
+      bestChars = count;
+    }
+  }
+  return best || 10;
+}
+
+const LIST_MARKER = /^(?:[•◦▪‣∙·∗*–—-]|\(?\d{1,2}[.)]|\(?[a-z][.)]|\(?[ivx]{1,4}[.)])\s/u;
+const SECTION_NUMBER = /^(?:\d+(?:\.\d+)*\.?|[A-Z](?:\.\d+)*\.?)\s+\p{Lu}/u;
+const HEADING_MAX_CHARS = 90;
+const FIGURE_MAX_CHARS = 60;
+
+/** Assigns a layout role from font size, line count, punctuation and markers. */
+function classify(
+  lines: Line[],
+  text: string,
+  bodySize: number,
+): { role: BlockRole; level?: number } {
+  const size = lines[0]?.size ?? bodySize;
+  const first = lines[0]?.text ?? "";
+  const small = size < bodySize * 0.88;
+  const large = size > bodySize * (1 + SIZE_CHANGE);
+
+  if (CAPTION.test(first)) {
+    return { role: "caption" };
+  }
+  // Short small text, or tiny text of any length (footnotes are ~80% of the
+  // body size, diagram labels much smaller).
+  if (small && (text.length <= FIGURE_MAX_CHARS || size < bodySize * 0.7)) {
+    return { role: "figure" };
+  }
+  const headingLike =
+    lines.length <= 2 &&
+    text.length <= HEADING_MAX_CHARS &&
+    !/[.,;!?]["'”’)\]]*$/u.test(text) &&
+    /^[\p{Lu}\d]/u.test(text);
+  if (headingLike && (large || SECTION_NUMBER.test(text) || lines.length === 1)) {
+    const level = size >= bodySize * 1.35 ? 1 : large ? 2 : 3;
+    return { role: "heading", level };
+  }
+  if (LIST_MARKER.test(first)) {
+    return { role: "list" };
+  }
+  if (small) {
+    return { role: "note" };
+  }
+  return { role: "paragraph" };
 }
 
 function toFragments({ items, styles, view }: PageTextInput): Fragment[] {

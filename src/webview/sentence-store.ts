@@ -12,6 +12,7 @@ export class SentenceStore {
   readonly #app: PdfjsApplication;
   readonly #segmenter: Segmenter;
   #pages = new Map<number, Promise<PageSegmentation>>();
+  #ready = new Map<number, PageSegmentation>();
   #byId = new Map<string, Sentence>();
   #listeners = new Set<(page: PageSegmentation) => void>();
   /** Bumped on document reload so that stale results are dropped. */
@@ -29,6 +30,7 @@ export class SentenceStore {
   reset(): void {
     this.#generation++;
     this.#pages.clear();
+    this.#ready.clear();
     this.#byId.clear();
   }
 
@@ -47,25 +49,26 @@ export class SentenceStore {
     return promise;
   }
 
+  /** The segmentation of a page if it is already available (no loading). */
+  cached(pageNumber: number): PageSegmentation | undefined {
+    return this.#ready.get(pageNumber);
+  }
+
   /** Finds the sentence under a point in PDF user space. */
   async hitTest(pageNumber: number, x: number, y: number): Promise<Sentence | undefined> {
-    const page = await this.ensure(pageNumber);
-    let best: Sentence | undefined;
-    let bestDistance = HIT_SLOP;
-    for (const block of page.blocks) {
-      for (const sentence of block.sentences) {
-        for (const r of sentence.rects) {
-          const dx = Math.max(r.x - x, 0, x - (r.x + r.w));
-          const dy = Math.max(r.y - y, 0, y - (r.y + r.h));
-          const distance = Math.hypot(dx, dy);
-          if (distance <= bestDistance) {
-            best = sentence;
-            bestDistance = distance;
-          }
-        }
-      }
+    return hitTest(await this.ensure(pageNumber), x, y);
+  }
+
+  /** Like `hitTest`, but only on already segmented pages; starts segmenting otherwise. */
+  hitTestCached(pageNumber: number, x: number, y: number): Sentence | undefined {
+    const page = this.cached(pageNumber);
+    if (page === undefined) {
+      void this.ensure(pageNumber).catch(() => {
+        // Reloaded while segmenting.
+      });
+      return undefined;
     }
-    return best;
+    return hitTest(page, x, y);
   }
 
   async #load(pageNumber: number): Promise<PageSegmentation> {
@@ -100,11 +103,31 @@ export class SentenceStore {
         this.#byId.set(sentence.id, sentence);
       }
     }
+    this.#ready.set(pageNumber, result);
     for (const listener of this.#listeners) {
       listener(result);
     }
     return result;
   }
+}
+
+function hitTest(page: PageSegmentation, x: number, y: number): Sentence | undefined {
+  let best: Sentence | undefined;
+  let bestDistance = HIT_SLOP;
+  for (const block of page.blocks) {
+    for (const sentence of block.sentences) {
+      for (const r of sentence.rects) {
+        const dx = Math.max(r.x - x, 0, x - (r.x + r.w));
+        const dy = Math.max(r.y - y, 0, y - (r.y + r.h));
+        const distance = Math.hypot(dx, dy);
+        if (distance <= bestDistance) {
+          best = sentence;
+          bestDistance = distance;
+        }
+      }
+    }
+  }
+  return best;
 }
 
 function idle(): Promise<void> {

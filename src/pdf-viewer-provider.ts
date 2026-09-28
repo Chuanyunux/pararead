@@ -72,6 +72,10 @@ function withTrailingSlash(uri: Uri): string {
   return value.endsWith("/") ? value : `${value}/`;
 }
 
+function selectOnHover(): boolean {
+  return workspace.getConfiguration("pdfBilingual").get<boolean>("selectOnHover", true);
+}
+
 function parentDirectory(uri: Uri): Uri {
   return uri.with({ path: uri.path.replace(resourcePathRegex, "/") });
 }
@@ -122,6 +126,7 @@ export class PDFViewerProvider implements CustomEditorProvider<PDFDocument> {
           this.post(webviewPanel.webview, {
             type: "settings",
             translateRange: translation.translateRange,
+            selectOnHover: selectOnHover(),
           });
         }
       }),
@@ -357,6 +362,7 @@ export class PDFViewerProvider implements CustomEditorProvider<PDFDocument> {
       wasmUrl: withTrailingSlash(resolvePdfJsURI("web", "wasm")),
       imageResourcesPath: withTrailingSlash(resolvePdfJsURI("web", "images")),
       translateRange: this.translation.translateRange,
+      selectOnHover: config.get<boolean>("selectOnHover", true),
     };
 
     return viewerHtml

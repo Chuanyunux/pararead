@@ -52,14 +52,26 @@ export interface Sentence {
 
 export type BlockKind = "text" | "code";
 
+/**
+ * Layout role of a block, used to typeset the translation like the original:
+ * - `figure`: text inside figures and diagrams (short labels);
+ * - `note`: small-print prose such as footnotes.
+ */
+export type BlockRole = "heading" | "paragraph" | "list" | "caption" | "note" | "figure" | "code";
+
 export interface Block {
   /** `p{page}-b{block}` */
   id: string;
   page: number;
   kind: BlockKind;
+  role: BlockRole;
+  /** For headings: 1 (largest) to 3. */
+  level?: number;
   text: string;
   /** Empty for code blocks, which are not translated. */
   sentences: Sentence[];
+  /** One rectangle per line, in reading order (PDF user space). */
+  lines: Rect[];
 }
 
 export interface PageSegmentation {

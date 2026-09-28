@@ -35,7 +35,7 @@ export type HostToWebview =
   /** Command: translate the whole document as job `jobId`. */
   | { type: "translateAll"; jobId: number }
   | { type: "cancelTranslateAll"; jobId: number }
-  | { type: "settings"; translateRange: TranslateRange };
+  | { type: "settings"; translateRange: TranslateRange; selectOnHover: boolean };
 
 export type WebviewToHost =
   /** Annotations changed since the last save. */

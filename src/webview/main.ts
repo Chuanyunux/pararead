@@ -21,11 +21,14 @@
 // relative to dist/webview/main.mjs).
 import "../../assets/pdf.js/web/viewer.mjs";
 import type { HostToWebview, TranslateRange, WebviewToHost } from "../messages";
-import { installAltClick } from "./alt-click";
+import { Connector } from "./connector";
 import { HighlightOverlay, scrollToSentence } from "./highlight-overlay";
 import { TranslationPanel } from "./panel";
+import { installPointerSelect } from "./pointer-select";
 import { SaveBridge } from "./save-bridge";
+import { ScrollSync } from "./scroll-sync";
 import { HeuristicSegmenter } from "./segmenter/heuristic";
+import { SelectionController } from "./selection";
 import { SentenceStore } from "./sentence-store";
 import { TranslationClient } from "./translation-client";
 
@@ -93,28 +96,63 @@ async function start() {
     post,
     range: isTranslateRange(config["translateRange"]) ? config["translateRange"] : "nearby",
   });
+  const selection = new SelectionController();
+  let hoverEnabled = config["selectOnHover"] !== false;
+  // An annotation editor tool (highlight, ink, free text, comment...) is active.
+  const editing = () => app.pdfViewer.annotationEditorMode > 0;
+  // Entering an editor clears the selection so it does not cover the annotation work.
+  app.eventBus.on("annotationeditormodechanged", ({ mode }: { mode: number }) => {
+    if (mode > 0) {
+      selection.clear();
+    }
+  });
   const panel = new TranslationPanel({
-    app,
     store,
     translations,
+    selection,
     vscode,
-    onSelect: (sentence) => {
+    hoverEnabled: () => hoverEnabled,
+    selectionEnabled: () => !editing(),
+    onActivate: (sentence) => {
       // Scroll first: bringing a page back into view resets its DOM.
       scrollToSentence(app, sentence);
       overlay.show(sentence);
       void translations.translateBlockOf(sentence);
     },
   });
-  installAltClick(app, store, (sentence) => {
-    overlay.show(sentence);
-    panel.reveal(sentence);
-    // An untranslated sentence gets its paragraph translated right away.
-    void translations.translateBlockOf(sentence);
+  installPointerSelect({
+    app,
+    store,
+    selection,
+    hoverEnabled: () => hoverEnabled,
+    onPin: (sentence) => {
+      if (!panel.isOpen) {
+        panel.setOpen(true);
+      }
+      // An untranslated sentence gets its paragraph translated right away.
+      void translations.translateBlockOf(sentence);
+    },
+  });
+  selection.onChange((current) => {
+    if (current === null) {
+      overlay.clear();
+    } else if (overlay.active?.id !== current.sentence.id) {
+      overlay.show(current.sentence);
+    }
+  });
+  const sync = new ScrollSync({ app, store, panel, selection });
+  const connector = new Connector(app, panel, selection);
+  // Translations change the panel layout.
+  translations.onChange(() => {
+    sync.schedule();
+    connector.schedule();
   });
 
   // Exposed for the development harness (tools/harness.mjs) only.
   if (config["debug"] === true) {
-    Object.assign(window, { __bilingual: { store, overlay, panel, translations } });
+    Object.assign(window, {
+      __bilingual: { store, overlay, panel, translations, selection, sync, connector },
+    });
   }
 
   // Segment pages lazily, as the viewer renders their text layers.
@@ -129,11 +167,15 @@ async function start() {
       return;
     }
     const message = event.data;
+    if (message.type === "settings") {
+      hoverEnabled = message.selectOnHover;
+    }
     if (translations.handle(message) || (await saveBridge.handle(message))) {
       return;
     }
     if (message.type === "reload") {
       const currentPageNumber = app.pdfViewer.currentPageNumber;
+      selection.clear();
       store.reset();
       translations.reset();
       panel.reset();

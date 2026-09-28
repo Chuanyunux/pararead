@@ -1,9 +1,12 @@
 /**
- * Translation panel to the right of the PDF, inside the same webview. Lists
- * the sentences of rendered pages grouped by page and paragraph.
+ * Translation panel to the right of the PDF, inside the same webview. The
+ * translation is typeset like the original: headings, paragraphs (sentences
+ * flow inline), lists, captions, footnotes and code, page by page.
  */
 
-import type { PageSegmentation, Sentence } from "./segmenter/types";
+import { HOVER_DWELL_MS } from "./pointer-select";
+import type { Block, PageSegmentation, Sentence } from "./segmenter/types";
+import type { SelectionController } from "./selection";
 import type { SentenceStore } from "./sentence-store";
 import type { TranslationClient, TranslationState } from "./translation-client";
 
@@ -12,54 +15,86 @@ const MIN_VIEWER_WIDTH = 360;
 const DEFAULT_WIDTH = 420;
 /** Panel share of the window when it is too narrow for both minimum widths. */
 const NARROW_WINDOW_RATIO = 0.4;
-/** After a selection, don't let page-following scroll the panel away. */
-const FOLLOW_PAUSE_MS = 1500;
 
 interface PanelState {
   open: boolean;
   width: number;
+  /** Show the original paragraph under each translated one. */
+  showSource: boolean;
 }
 
 export interface PanelOptions {
-  app: PdfjsApplication;
   store: SentenceStore;
   translations: TranslationClient;
+  selection: SelectionController;
   vscode: VsCodeApi;
+  hoverEnabled: () => boolean;
+  /** False while a PDF annotation editor is active: selection is paused. */
+  selectionEnabled: () => boolean;
   /** A sentence was clicked in the panel. */
-  onSelect: (sentence: Sentence) => void;
+  onActivate: (sentence: Sentence) => void;
 }
 
 export class TranslationPanel {
-  readonly #app: PdfjsApplication;
   readonly #store: SentenceStore;
   readonly #translations: TranslationClient;
   readonly #vscode: VsCodeApi;
   readonly #root: HTMLElement;
   readonly #body: HTMLElement;
+  readonly #content: HTMLElement;
   readonly #pageLabel: HTMLElement;
   readonly #toggle: HTMLButtonElement;
+  readonly #sourceToggle: HTMLButtonElement;
+  /** Block id → element (figure labels share one placeholder). */
+  readonly #blockElements = new Map<string, HTMLElement>();
   #state: PanelState;
   #activeId: string | null = null;
-  #followPausedUntil = 0;
 
-  constructor({ app, store, translations, vscode, onSelect }: PanelOptions) {
-    this.#app = app;
+  constructor({
+    store,
+    translations,
+    selection,
+    vscode,
+    hoverEnabled,
+    selectionEnabled,
+    onActivate,
+  }: PanelOptions) {
     this.#store = store;
     this.#translations = translations;
     this.#vscode = vscode;
-    this.#state = { open: true, width: DEFAULT_WIDTH, ...readState(vscode) };
+    this.#state = { open: true, width: DEFAULT_WIDTH, showSource: false, ...readState(vscode) };
 
     this.#root = element("aside", "bilingualPanel");
     this.#root.setAttribute("aria-label", "译文");
     const splitter = element("div", "bilingualSplitter");
     splitter.setAttribute("role", "separator");
     splitter.setAttribute("aria-orientation", "vertical");
+
     const header = element("header", "bilingualHeader");
     header.append(element("span", "bilingualTitle", "译文"));
     this.#pageLabel = element("span", "bilingualPageLabel");
-    header.append(this.#pageLabel);
+    this.#sourceToggle = element("button", "bilingualHeaderButton", "原文");
+    this.#sourceToggle.type = "button";
+    this.#sourceToggle.title = "在每段译文下显示原文";
+    this.#sourceToggle.addEventListener("click", () => {
+      this.#state = { ...this.#state, showSource: !this.#state.showSource };
+      this.#apply();
+      this.#save();
+    });
+    const tools = element("span", "bilingualHeaderTools");
+    tools.append(this.#pageLabel, this.#sourceToggle);
+    header.append(tools);
+
     this.#body = element("div", "bilingualBody");
-    this.#body.append(element("p", "bilingualEmpty", "滚动或 Alt+点击 PDF 中的句子以显示译文。"));
+    this.#content = element("div", "bilingualContent");
+    this.#content.append(
+      element(
+        "p",
+        "bilingualEmpty",
+        "滚动 PDF 即可看到译文；鼠标停在句子上可对照，单击空白处取消。",
+      ),
+    );
+    this.#body.append(this.#content);
     this.#root.append(splitter, header, this.#body);
     document.body.append(this.#root);
 
@@ -71,14 +106,44 @@ export class TranslationPanel {
     this.#toggle.addEventListener("click", () => this.setOpen(!this.#state.open));
     document.querySelector("#toolbarViewerRight")?.prepend(this.#toggle);
 
-    this.#body.addEventListener("click", (event) => {
-      const row = (event.target as Element).closest<HTMLElement>(".bilingualSentence");
-      const sentence =
-        row?.dataset["id"] === undefined ? undefined : this.#store.get(row.dataset["id"]);
-      if (sentence !== undefined) {
-        this.#setActive(sentence.id);
-        onSelect(sentence);
+    // Click pins and activates; hover previews after a short dwell.
+    this.#content.addEventListener("click", (event) => {
+      if (!selectionEnabled()) {
+        return;
       }
+      const sentence = this.#sentenceFor(event.target);
+      if (sentence !== undefined) {
+        selection.pin(sentence, "panel");
+        onActivate(sentence);
+        return;
+      }
+      // Empty space clears the selection (but not right after selecting text to copy).
+      const selected = window.getSelection();
+      if (selected === null || selected.isCollapsed) {
+        selection.clear();
+      }
+    });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let candidate: string | undefined;
+    this.#content.addEventListener("pointermove", (event) => {
+      const sentence =
+        hoverEnabled() && selectionEnabled() ? this.#sentenceFor(event.target) : undefined;
+      if (sentence?.id === candidate) {
+        return;
+      }
+      candidate = sentence?.id;
+      clearTimeout(timer);
+      if (sentence !== undefined) {
+        timer = setTimeout(() => {
+          selection.preview(sentence, "panel");
+          // Re-arm on the next move, e.g. after the selection was cleared.
+          candidate = undefined;
+        }, HOVER_DWELL_MS);
+      }
+    });
+    this.#content.addEventListener("pointerleave", () => {
+      clearTimeout(timer);
+      candidate = undefined;
     });
 
     this.#installSplitter(splitter);
@@ -90,27 +155,38 @@ export class TranslationPanel {
     });
     store.onPageReady((page) => this.#renderPage(page));
     translations.onChange((id, state) => {
-      const target = this.#rowFor(id)?.querySelector<HTMLElement>(".bilingualTarget");
-      if (target !== undefined && target !== null) {
-        renderTarget(target, state);
+      const span = this.sentenceElement(id);
+      const sentence = this.#store.get(id);
+      if (span !== null && sentence !== undefined) {
+        renderSentence(span, sentence, state);
       }
     });
-    app.eventBus.on("pagechanging", ({ pageNumber }: { pageNumber: number }) =>
-      this.#follow(pageNumber),
-    );
+    selection.onChange((current) => this.#setActive(current?.sentence.id ?? null));
 
     this.#apply();
   }
 
-  /** Shows a sentence selected in the PDF. */
-  reveal(sentence: Sentence): void {
-    if (!this.#state.open) {
-      this.setOpen(true);
-    }
-    this.#setActive(sentence.id);
-    void this.#store.ensure(sentence.page).then(() => {
-      this.#rowFor(sentence.id)?.scrollIntoView({ block: "center", behavior: "smooth" });
-    });
+  /** The scrolling element of the panel. */
+  get body(): HTMLElement {
+    return this.#body;
+  }
+
+  get isOpen(): boolean {
+    return this.#state.open;
+  }
+
+  setPageLabel(pageNumber: number): void {
+    this.#pageLabel.textContent = `第 ${pageNumber} 页`;
+  }
+
+  sentenceElement(id: string): HTMLElement | null {
+    return this.#content.querySelector<HTMLElement>(
+      `.bilingualSentence[data-id="${CSS.escape(id)}"]`,
+    );
+  }
+
+  blockElement(id: string): HTMLElement | undefined {
+    return this.#blockElements.get(id);
   }
 
   setOpen(open: boolean): void {
@@ -121,11 +197,21 @@ export class TranslationPanel {
 
   reset(): void {
     this.#activeId = null;
-    this.#body.replaceChildren();
+    this.#blockElements.clear();
+    this.#content.replaceChildren();
+  }
+
+  #sentenceFor(target: EventTarget | null): Sentence | undefined {
+    const id = (target as Element | null)?.closest<HTMLElement>(".bilingualSentence")?.dataset[
+      "id"
+    ];
+    return id === undefined ? undefined : this.#store.get(id);
   }
 
   #apply(): void {
     document.body.classList.toggle("bilingualPanelOpen", this.#state.open);
+    this.#root.classList.toggle("showSource", this.#state.showSource);
+    this.#sourceToggle.setAttribute("aria-pressed", String(this.#state.showSource));
     this.#toggle.setAttribute("aria-pressed", String(this.#state.open));
     this.#toggle.classList.toggle("toggled", this.#state.open);
     this.#layout();
@@ -192,98 +278,98 @@ export class TranslationPanel {
     window.addEventListener("pointercancel", end);
   }
 
-  #follow(pageNumber: number): void {
-    this.#pageLabel.textContent = `第 ${pageNumber} 页`;
-    // Segment the current page and its neighbours ahead of time.
-    for (const n of [pageNumber, pageNumber + 1, pageNumber - 1]) {
-      if (n >= 1 && n <= this.#app.pdfViewer.pagesCount) {
-        void this.#store.ensure(n).catch(() => {
-          // Reloaded while segmenting; the new document segments again.
-        });
-      }
+  #setActive(id: string | null): void {
+    if (this.#activeId !== null) {
+      this.sentenceElement(this.#activeId)?.classList.remove("active");
     }
-    if (!this.#state.open || Date.now() < this.#followPausedUntil || this.#root.matches(":hover")) {
-      return;
-    }
-    void this.#store.ensure(pageNumber).then(() => {
-      this.#sectionFor(pageNumber)?.scrollIntoView({ block: "start" });
-    });
-  }
-
-  #setActive(id: string): void {
-    this.#followPausedUntil = Date.now() + FOLLOW_PAUSE_MS;
     this.#activeId = id;
-    for (const row of this.#body.querySelectorAll(".bilingualSentence.active")) {
-      row.classList.remove("active");
+    if (id !== null) {
+      this.sentenceElement(id)?.classList.add("active");
     }
-    this.#rowFor(id)?.classList.add("active");
-  }
-
-  #rowFor(id: string): HTMLElement | null {
-    return this.#body.querySelector<HTMLElement>(`.bilingualSentence[data-id="${CSS.escape(id)}"]`);
-  }
-
-  #sectionFor(pageNumber: number): HTMLElement | null {
-    return this.#body.querySelector<HTMLElement>(`section[data-page="${pageNumber}"]`);
   }
 
   #renderPage(page: PageSegmentation): void {
-    this.#body.querySelector(".bilingualEmpty")?.remove();
+    this.#content.querySelector(".bilingualEmpty")?.remove();
     const section = element("section", "bilingualPage");
     section.dataset["page"] = String(page.page);
-    section.append(element("h2", "bilingualPageHeading", `第 ${page.page} 页`));
+    section.append(element("div", "bilingualPageDivider", `第 ${page.page} 页`));
 
+    let figure: HTMLElement | null = null;
+    let code: HTMLElement | null = null;
     for (const block of page.blocks) {
-      if (block.kind !== "text" || block.sentences.length === 0) {
+      if (block.role === "figure") {
+        // Consecutive diagram labels collapse into one placeholder.
+        if (figure === null) {
+          figure = element("div", "bilingualFigure", "〔图表文字〕");
+          section.append(figure);
+        }
+        figure.dataset["blocks"] = `${figure.dataset["blocks"] ?? ""} ${block.id}`.trim();
+        this.#blockElements.set(block.id, figure);
         continue;
       }
-      const paragraph = element("div", "bilingualBlock");
-      paragraph.dataset["block"] = block.id;
-      for (const sentence of block.sentences) {
-        const row = element("div", "bilingualSentence");
-        row.dataset["id"] = sentence.id;
-        row.tabIndex = 0;
-        row.append(element("div", "bilingualSource", sentence.text));
-        const target = element("div", "bilingualTarget");
-        renderTarget(target, this.#translations.state(sentence.id));
-        row.append(target);
-        if (sentence.id === this.#activeId) {
-          row.classList.add("active");
+      figure = null;
+      if (block.role === "code") {
+        // Consecutive code blocks form one listing.
+        if (code === null) {
+          code = element("pre", "bilingualCode", block.text);
+          section.append(code);
+        } else {
+          code.textContent += `\n${block.text}`;
         }
-        paragraph.append(row);
+        this.#blockElements.set(block.id, code);
+        continue;
       }
-      section.append(paragraph);
+      code = null;
+      const el = this.#renderBlock(block);
+      if (el !== null) {
+        section.append(el);
+        this.#blockElements.set(block.id, el);
+      }
     }
 
     // Keep sections in page order regardless of render order.
-    this.#sectionFor(page.page)?.remove();
-    const next = [...this.#body.querySelectorAll<HTMLElement>("section[data-page]")].find(
+    this.#content.querySelector(`section[data-page="${page.page}"]`)?.remove();
+    const next = [...this.#content.querySelectorAll<HTMLElement>("section[data-page]")].find(
       (s) => Number(s.dataset["page"]) > page.page,
     );
-    this.#body.insertBefore(section, next ?? null);
+    this.#content.insertBefore(section, next ?? null);
+  }
+
+  #renderBlock(block: Block): HTMLElement | null {
+    if (block.sentences.length === 0) {
+      // Page numbers and other text without sentences.
+      return null;
+    }
+    const tag = block.role === "heading" ? "h3" : "div";
+    const el = element(tag, `bilingualBlock ${block.role}`);
+    el.dataset["block"] = block.id;
+    if (block.role === "heading") {
+      el.dataset["level"] = String(block.level ?? 3);
+    }
+    const target = element("div", "bilingualTarget");
+    for (const sentence of block.sentences) {
+      const span = element("span", "bilingualSentence");
+      span.dataset["id"] = sentence.id;
+      renderSentence(span, sentence, this.#translations.state(sentence.id));
+      if (sentence.id === this.#activeId) {
+        span.classList.add("active");
+      }
+      target.append(span);
+    }
+    el.append(
+      target,
+      element("div", "bilingualSource", block.sentences.map((s) => s.text).join(" ")),
+    );
+    return el;
   }
 }
 
-function renderTarget(target: HTMLElement, state: TranslationState): void {
-  target.dataset["status"] = state.status;
-  switch (state.status) {
-    case "done":
-      target.textContent = state.zh;
-      target.title = "";
-      break;
-    case "pending":
-      target.textContent = "翻译中…";
-      target.title = "";
-      break;
-    case "error":
-      target.textContent = `翻译失败，点击重试（${state.message}）`;
-      target.title = state.message;
-      break;
-    case "none":
-      target.textContent = "未翻译，点击翻译";
-      target.title = "";
-      break;
-  }
+/** Shows the translation, or the original (dimmed) until it is available. */
+function renderSentence(span: HTMLElement, sentence: Sentence, state: TranslationState): void {
+  span.dataset["status"] = state.status;
+  // English sentences need a separating space; Chinese ones do not.
+  span.textContent = state.status === "done" ? state.zh : `${sentence.text} `;
+  span.title = state.status === "error" ? `翻译失败，点击重试：${state.message}` : "";
 }
 
 function element<K extends keyof HTMLElementTagNameMap>(
@@ -308,5 +394,6 @@ function readState(vscode: VsCodeApi): Partial<PanelState> {
   return {
     ...(typeof panel.open === "boolean" ? { open: panel.open } : {}),
     ...(typeof panel.width === "number" ? { width: panel.width } : {}),
+    ...(typeof panel.showSource === "boolean" ? { showSource: panel.showSource } : {}),
   };
 }

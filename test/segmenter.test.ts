@@ -146,3 +146,36 @@ describe("HeuristicSegmenter on a two-column paper", () => {
     }
   });
 });
+
+describe("block roles", () => {
+  const roles = (name: string) =>
+    new HeuristicSegmenter()
+      .segmentPage(loadFixture(name))
+      .blocks.map((b) => ({ role: b.role, level: b.level, text: b.text }));
+  const find = (name: string, prefix: string) => roles(name).find((b) => b.text.startsWith(prefix));
+
+  it("recognizes headings with levels", () => {
+    const title = find("compressed.tracemonkey-pldi-09.p1.json", "Trace-based Just-in-Time");
+    expect(title).toMatchObject({ role: "heading", level: 1 });
+  });
+
+  it("recognizes lists, captions, figure labels, code and paragraphs", () => {
+    const tm = "compressed.tracemonkey-pldi-09.p2.json";
+    expect(find(tm, "• We explain an algorithm")?.role).toBe("list");
+    expect(find(tm, "Figure 1.")?.role).toBe("caption");
+    expect(find(tm, "Monitor")?.role).toBe("figure");
+    expect(find(tm, "1 for (var i")?.role).toBe("code");
+    expect(find(tm, "Nested loops can be difficult")?.role).toBe("paragraph");
+  });
+
+  it("records one rectangle per line", () => {
+    const { blocks } = new HeuristicSegmenter().segmentPage(
+      loadFixture("compressed.tracemonkey-pldi-09.p2.json"),
+    );
+    const block = blocks.find((b) => b.text.startsWith("Nested loops can be difficult"));
+    // The paragraph spans 13 lines of the left column (y 622 to 502), top to bottom.
+    expect(block?.lines).toHaveLength(13);
+    const ys = block?.lines.map((r) => r.y) ?? [];
+    expect(ys).toEqual(ys.toSorted((a, b) => b - a));
+  });
+});
