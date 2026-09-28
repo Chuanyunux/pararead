@@ -20,13 +20,18 @@
 // Loads the pdf.js viewer (kept external to the bundle; resolved at runtime
 // relative to dist/webview/main.mjs).
 import "../../assets/pdf.js/web/viewer.mjs";
-import type { HostToWebview, WebviewToHost } from "../messages";
+import type { HostToWebview, TranslateRange, WebviewToHost } from "../messages";
 import { installAltClick } from "./alt-click";
 import { HighlightOverlay, scrollToSentence } from "./highlight-overlay";
 import { TranslationPanel } from "./panel";
 import { SaveBridge } from "./save-bridge";
 import { HeuristicSegmenter } from "./segmenter/heuristic";
 import { SentenceStore } from "./sentence-store";
+import { TranslationClient } from "./translation-client";
+
+function isTranslateRange(value: unknown): value is TranslateRange {
+  return value === "page" || value === "nearby" || value === "manual";
+}
 
 // The patched viewer calls acquireVsCodeApi() itself, which may only be called
 // once per webview. This module runs before the viewer initializes, so acquire
@@ -82,24 +87,34 @@ async function start() {
   const saveBridge = new SaveBridge(app, post);
   const store = new SentenceStore(app, new HeuristicSegmenter());
   const overlay = new HighlightOverlay(app);
+  const translations = new TranslationClient({
+    app,
+    store,
+    post,
+    range: isTranslateRange(config["translateRange"]) ? config["translateRange"] : "nearby",
+  });
   const panel = new TranslationPanel({
     app,
     store,
+    translations,
     vscode,
     onSelect: (sentence) => {
       // Scroll first: bringing a page back into view resets its DOM.
       scrollToSentence(app, sentence);
       overlay.show(sentence);
+      void translations.translateBlockOf(sentence);
     },
   });
   installAltClick(app, store, (sentence) => {
     overlay.show(sentence);
     panel.reveal(sentence);
+    // An untranslated sentence gets its paragraph translated right away.
+    void translations.translateBlockOf(sentence);
   });
 
   // Exposed for the development harness (tools/harness.mjs) only.
   if (config["debug"] === true) {
-    Object.assign(window, { __bilingual: { store, overlay, panel } });
+    Object.assign(window, { __bilingual: { store, overlay, panel, translations } });
   }
 
   // Segment pages lazily, as the viewer renders their text layers.
@@ -114,17 +129,19 @@ async function start() {
       return;
     }
     const message = event.data;
-    if (await saveBridge.handle(message)) {
+    if (translations.handle(message) || (await saveBridge.handle(message))) {
       return;
     }
     if (message.type === "reload") {
       const currentPageNumber = app.pdfViewer.currentPageNumber;
       store.reset();
+      translations.reset();
       panel.reset();
       overlay.clear();
       await app.open(config);
       await app.pdfViewer.pagesPromise;
       app.pdfViewer.currentPageNumber = Math.min(currentPageNumber, app.pdfViewer.pagesCount);
+      translations.refresh();
     }
   });
 
@@ -134,6 +151,7 @@ async function start() {
   if (hash !== undefined && hash !== "") {
     app.pdfLinkService.setHash(decodeURIComponent(hash));
   }
+  translations.refresh();
 }
 
 void start();

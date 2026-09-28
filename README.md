@@ -10,10 +10,28 @@ and [Mozilla PDF.js](https://mozilla.github.io/pdf.js/).
   in the panel on the right; click a sentence in the panel to jump back.
 - The panel can be resized with the splitter and toggled with the **译** button
   in the toolbar.
+- Translations come from any OpenAI-compatible API — DeepSeek by default — and
+  are cached per sentence on disk, so reopening a paper costs no API calls.
 
-Status: milestone M1 — sentence segmentation and linking work; the panel shows
-placeholder translations until the translation service lands (M2). See
-`pdf-bilingual-reader-需求.md` for the full plan.
+Status: milestone M2. See `pdf-bilingual-reader-需求.md` for the full plan.
+
+## Translation setup
+
+1. Run **PDF Bilingual: 设置 API Key** from the Command Palette. The key is kept
+   in VS Code's secret storage and never reaches the webview.
+2. Open a PDF. The current page and its neighbours are translated as you read
+   (`pdfBilingual.translateRange`: `page` / `nearby` / `manual`); Alt+click or
+   click an untranslated sentence to translate its paragraph.
+3. **PDF Bilingual: 翻译整篇** translates the whole paper (with confirmation,
+   progress and cancel); **清除翻译缓存** removes cached translations.
+
+Defaults: `baseUrl` `https://api.deepseek.com`, `model` `deepseek-flash`,
+`temperature` 0.7, and `extraBody` `{"thinking": {"type": "disabled"}}` (DeepSeek
+enables thinking mode by default). For a local Ollama, set `baseUrl` to
+`http://localhost:11434/v1`, `extraBody` to `{}` and no key is needed.
+
+API calls, cache hits and token usage are logged to the **PDF Bilingual** output
+channel.
 
 ## Development
 

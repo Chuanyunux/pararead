@@ -12,6 +12,8 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Modified by chuanyun, 2026: added all().
  */
 
 import type { Uri, WebviewPanel } from "vscode";
@@ -30,6 +32,13 @@ export class WebviewCollection {
       if (entry.resource === key) {
         yield entry.webviewPanel;
       }
+    }
+  }
+
+  /** All known webviews. */
+  *all(): Iterable<WebviewPanel> {
+    for (const entry of this._webviews) {
+      yield entry.webviewPanel;
     }
   }
 

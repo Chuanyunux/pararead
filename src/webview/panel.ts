@@ -5,6 +5,7 @@
 
 import type { PageSegmentation, Sentence } from "./segmenter/types";
 import type { SentenceStore } from "./sentence-store";
+import type { TranslationClient, TranslationState } from "./translation-client";
 
 const MIN_WIDTH = 240;
 const MIN_VIEWER_WIDTH = 360;
@@ -22,6 +23,7 @@ interface PanelState {
 export interface PanelOptions {
   app: PdfjsApplication;
   store: SentenceStore;
+  translations: TranslationClient;
   vscode: VsCodeApi;
   /** A sentence was clicked in the panel. */
   onSelect: (sentence: Sentence) => void;
@@ -30,6 +32,7 @@ export interface PanelOptions {
 export class TranslationPanel {
   readonly #app: PdfjsApplication;
   readonly #store: SentenceStore;
+  readonly #translations: TranslationClient;
   readonly #vscode: VsCodeApi;
   readonly #root: HTMLElement;
   readonly #body: HTMLElement;
@@ -39,9 +42,10 @@ export class TranslationPanel {
   #activeId: string | null = null;
   #followPausedUntil = 0;
 
-  constructor({ app, store, vscode, onSelect }: PanelOptions) {
+  constructor({ app, store, translations, vscode, onSelect }: PanelOptions) {
     this.#app = app;
     this.#store = store;
+    this.#translations = translations;
     this.#vscode = vscode;
     this.#state = { open: true, width: DEFAULT_WIDTH, ...readState(vscode) };
 
@@ -85,6 +89,12 @@ export class TranslationPanel {
       }
     });
     store.onPageReady((page) => this.#renderPage(page));
+    translations.onChange((id, state) => {
+      const target = this.#rowFor(id)?.querySelector<HTMLElement>(".bilingualTarget");
+      if (target !== undefined && target !== null) {
+        renderTarget(target, state);
+      }
+    });
     app.eventBus.on("pagechanging", ({ pageNumber }: { pageNumber: number }) =>
       this.#follow(pageNumber),
     );
@@ -234,8 +244,9 @@ export class TranslationPanel {
         row.dataset["id"] = sentence.id;
         row.tabIndex = 0;
         row.append(element("div", "bilingualSource", sentence.text));
-        // M1: placeholder until the translation service lands in M2.
-        row.append(element("div", "bilingualTarget", `〔占位译文〕${sentence.text}`));
+        const target = element("div", "bilingualTarget");
+        renderTarget(target, this.#translations.state(sentence.id));
+        row.append(target);
         if (sentence.id === this.#activeId) {
           row.classList.add("active");
         }
@@ -250,6 +261,28 @@ export class TranslationPanel {
       (s) => Number(s.dataset["page"]) > page.page,
     );
     this.#body.insertBefore(section, next ?? null);
+  }
+}
+
+function renderTarget(target: HTMLElement, state: TranslationState): void {
+  target.dataset["status"] = state.status;
+  switch (state.status) {
+    case "done":
+      target.textContent = state.zh;
+      target.title = "";
+      break;
+    case "pending":
+      target.textContent = "翻译中…";
+      target.title = "";
+      break;
+    case "error":
+      target.textContent = `翻译失败，点击重试（${state.message}）`;
+      target.title = state.message;
+      break;
+    case "none":
+      target.textContent = "未翻译，点击翻译";
+      target.title = "";
+      break;
   }
 }
 

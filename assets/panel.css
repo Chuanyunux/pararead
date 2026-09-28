@@ -128,6 +128,21 @@ body.bilingualResizing #outerContainer {
   line-height: 1.6;
 }
 
+.bilingualTarget[data-status="none"],
+.bilingualTarget[data-status="pending"] {
+  color: var(--vscode-descriptionForeground, GrayText);
+  font-size: 0.9em;
+}
+
+.bilingualTarget[data-status="pending"] {
+  font-style: italic;
+}
+
+.bilingualTarget[data-status="error"] {
+  color: var(--vscode-errorForeground, #f14c4c);
+  font-size: 0.9em;
+}
+
 /* Toolbar toggle: a text button, without pdf.js' icon mask. */
 .toolbarButton.bilingualToggle {
   width: auto;

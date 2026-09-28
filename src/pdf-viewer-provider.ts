@@ -14,7 +14,8 @@
  * limitations under the License.
  *
  * Modified by chuanyun, 2026: editable custom editor (annotation save,
- * save as, revert, backup), typed message bridge, bilingual webview bundle.
+ * save as, revert, backup), typed message bridge, bilingual webview bundle,
+ * translation requests.
  */
 
 import { join } from "node:path";
@@ -46,6 +47,8 @@ import {
   type WebviewToHost,
 } from "./messages";
 import { PDFDocument } from "./pdf-document";
+import type { TranslationBridge } from "./translation-bridge";
+import type { TranslationService } from "./translation/service";
 import { escapeAttribute } from "./utils";
 import { WebviewCollection } from "./webview-collection";
 
@@ -81,16 +84,12 @@ interface PendingRequest {
 export class PDFViewerProvider implements CustomEditorProvider<PDFDocument> {
   static readonly viewType = "pdfBilingual.view";
 
-  static register(context: ExtensionContext) {
-    return window.registerCustomEditorProvider(
-      PDFViewerProvider.viewType,
-      new PDFViewerProvider(context),
-      {
-        supportsMultipleEditorsPerDocument: false,
-        // Unsaved annotation edits and the panel state live in the webview.
-        webviewOptions: { retainContextWhenHidden: true },
-      },
-    );
+  static register(provider: PDFViewerProvider) {
+    return window.registerCustomEditorProvider(PDFViewerProvider.viewType, provider, {
+      supportsMultipleEditorsPerDocument: false,
+      // Unsaved annotation edits and the panel state live in the webview.
+      webviewOptions: { retainContextWhenHidden: true },
+    });
   }
 
   /** Tracks all known webviews */
@@ -106,8 +105,46 @@ export class PDFViewerProvider implements CustomEditorProvider<PDFDocument> {
   private nextRequestId = 1;
   private readonly pendingRequests = new Map<number, PendingRequest>();
 
-  constructor(context: ExtensionContext) {
+  private readonly translation: TranslationService;
+  private readonly bridge: TranslationBridge;
+
+  constructor(
+    context: ExtensionContext,
+    translation: TranslationService,
+    bridge: TranslationBridge,
+  ) {
     this.extensionRoot = Uri.file(context.extensionPath);
+    this.translation = translation;
+    this.bridge = bridge;
+    context.subscriptions.push(
+      translation.onDidChangeSettings(() => {
+        for (const webviewPanel of this.webviews.all()) {
+          this.post(webviewPanel.webview, {
+            type: "settings",
+            translateRange: translation.translateRange,
+          });
+        }
+      }),
+    );
+  }
+
+  /** The webview of the focused PDF viewer, if any. */
+  activeWebview(): Webview | undefined {
+    for (const webviewPanel of this.webviews.all()) {
+      if (webviewPanel.active) {
+        return webviewPanel.webview;
+      }
+    }
+    return undefined;
+  }
+
+  /** Sends a message to the focused PDF viewer; returns false if there is none. */
+  postToActive(message: HostToWebview): boolean {
+    const webview = this.activeWebview();
+    if (webview !== undefined) {
+      this.post(webview, message);
+    }
+    return webview !== undefined;
   }
 
   openCustomDocument(uri: Uri, openContext: CustomDocumentOpenContext) {
@@ -237,9 +274,13 @@ export class PDFViewerProvider implements CustomEditorProvider<PDFDocument> {
       resourceRoot,
     );
 
+    webviewPanel.onDidDispose(() => this.bridge.release(webviewPanel.webview));
+
     webviewPanel.webview.onDidReceiveMessage(async (message: unknown) => {
       if (isWebviewToHost(message)) {
-        await this.onWebviewMessage(document, message);
+        if (!this.bridge.handle(webviewPanel.webview, message)) {
+          await this.onWebviewMessage(document, message);
+        }
         return;
       }
       if (!isOpenLinkMessage(message)) {
@@ -290,6 +331,9 @@ export class PDFViewerProvider implements CustomEditorProvider<PDFDocument> {
         this.pendingRequests.get(message.requestId)?.reject(new Error(message.message));
         this.pendingRequests.delete(message.requestId);
         break;
+      default:
+        // Translation messages are handled by the bridge.
+        break;
     }
   }
 
@@ -312,6 +356,7 @@ export class PDFViewerProvider implements CustomEditorProvider<PDFDocument> {
       standardFontDataUrl: withTrailingSlash(resolvePdfJsURI("web", "standard_fonts")),
       wasmUrl: withTrailingSlash(resolvePdfJsURI("web", "wasm")),
       imageResourcesPath: withTrailingSlash(resolvePdfJsURI("web", "images")),
+      translateRange: this.translation.translateRange,
     };
 
     return viewerHtml

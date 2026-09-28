@@ -58,6 +58,17 @@ function harnessHtml(pdf) {
     postMessage(message) {
       window.__hostMessages.push(message);
       console.log("[to host]", message.type ?? message);
+      // Fake translation host: answers after a short delay.
+      if (message.type === "translate") {
+        const reply = (m) => window.postMessage(m, window.origin);
+        setTimeout(() => {
+          const { requestId, sentences } = message;
+          const failing = sentences.filter((s) => window.__failIds?.includes(s.id));
+          const ok = sentences.filter((s) => !failing.includes(s));
+          reply({ type: "translations", requestId, items: ok.map((s) => ({ id: s.id, zh: "【译】" + s.text })) });
+          reply({ type: "translationDone", requestId, failures: failing.map((s) => ({ id: s.id, message: "模拟失败" })) });
+        }, 50);
+      }
     },
     getState() {
       try { return JSON.parse(sessionStorage.getItem("vscodeState") ?? "null"); } catch { return null; }

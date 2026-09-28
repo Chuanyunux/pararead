@@ -90,6 +90,72 @@
             "Layers"
           ],
           "description": "Sidebar panel to show when opening a PDF."
+        },
+        "pdfBilingual.baseUrl": {
+          "type": "string",
+          "default": "https://api.deepseek.com",
+          "markdownDescription": "OpenAI 兼容翻译接口地址（不含 `/chat/completions`）。本地 Ollama 可用 `http://localhost:11434/v1`。"
+        },
+        "pdfBilingual.model": {
+          "type": "string",
+          "default": "deepseek-flash",
+          "markdownDescription": "翻译模型，例如 `deepseek-flash`、`deepseek-v4-pro`。"
+        },
+        "pdfBilingual.temperature": {
+          "type": "number",
+          "default": 0.7,
+          "minimum": 0,
+          "maximum": 2,
+          "description": "翻译温度。较低的值让术语译法更一致。"
+        },
+        "pdfBilingual.requestTimeout": {
+          "type": "number",
+          "default": 60000,
+          "minimum": 1000,
+          "description": "单次请求超时（毫秒）。"
+        },
+        "pdfBilingual.maxCharsPerRequest": {
+          "type": "number",
+          "default": 3000,
+          "minimum": 200,
+          "description": "单次请求的原文字符上限；同一段落尽量放在同一次请求中。"
+        },
+        "pdfBilingual.glossary": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": {
+            "type": "string"
+          },
+          "markdownDescription": "术语表：英文术语 → 译法，例如 `{\"attention\": \"注意力\", \"token\": \"token\"}`。修改后相关句子会重新翻译。"
+        },
+        "pdfBilingual.translateRange": {
+          "type": "string",
+          "default": "nearby",
+          "enum": [
+            "page",
+            "nearby",
+            "manual"
+          ],
+          "enumDescriptions": [
+            "自动翻译当前页",
+            "自动翻译当前页及前后各一页",
+            "仅在 Alt+点击或执行命令时翻译"
+          ],
+          "description": "阅读时自动翻译的范围。"
+        },
+        "pdfBilingual.cacheDir": {
+          "type": "string",
+          "default": "",
+          "description": "自定义译文缓存目录；留空使用扩展的全局存储目录。"
+        },
+        "pdfBilingual.extraBody": {
+          "type": "object",
+          "default": {
+            "thinking": {
+              "type": "disabled"
+            }
+          },
+          "markdownDescription": "附加到请求体的字段。默认关闭 DeepSeek 的思考模式；使用其他服务时可改为 `{}`。"
         }
       }
     },
@@ -103,7 +169,41 @@
           }
         ]
       }
-    ]
+    ],
+    "commands": [
+      {
+        "command": "pdfBilingual.setApiKey",
+        "title": "设置 API Key",
+        "category": "PDF Bilingual"
+      },
+      {
+        "command": "pdfBilingual.translatePage",
+        "title": "翻译当前页",
+        "category": "PDF Bilingual"
+      },
+      {
+        "command": "pdfBilingual.translateDocument",
+        "title": "翻译整篇",
+        "category": "PDF Bilingual"
+      },
+      {
+        "command": "pdfBilingual.clearCache",
+        "title": "清除翻译缓存",
+        "category": "PDF Bilingual"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "pdfBilingual.translatePage",
+          "when": "activeCustomEditorId == pdfBilingual.view"
+        },
+        {
+          "command": "pdfBilingual.translateDocument",
+          "when": "activeCustomEditorId == pdfBilingual.view"
+        }
+      ]
+    }
   },
   "activationEvents": [
     "onStartupFinished"

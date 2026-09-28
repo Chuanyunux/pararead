@@ -13,15 +13,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Modified by chuanyun, 2026: removed the upstream sponsorship prompt.
+ * Modified by chuanyun, 2026: removed the upstream sponsorship prompt;
+ * translation service and commands.
  */
 
-import type { ExtensionContext } from "vscode";
+import { commands, type ExtensionContext, window } from "vscode";
 
 import { PDFViewerProvider } from "./pdf-viewer-provider";
+import { TranslationBridge } from "./translation-bridge";
+import { SET_API_KEY_COMMAND, TranslationService } from "./translation/service";
+
+const NO_VIEWER = "请先在 PDF Bilingual Reader 中打开一个 PDF。";
 
 export function activate(context: ExtensionContext): void {
-  context.subscriptions.push(PDFViewerProvider.register(context));
+  const translation = new TranslationService(context);
+  const bridge = new TranslationBridge(translation);
+  const provider = new PDFViewerProvider(context, translation, bridge);
+
+  context.subscriptions.push(
+    translation,
+    PDFViewerProvider.register(provider),
+    commands.registerCommand(SET_API_KEY_COMMAND, () => translation.setApiKey()),
+    commands.registerCommand("pdfBilingual.clearCache", () => translation.clearCache()),
+    commands.registerCommand("pdfBilingual.translatePage", () => {
+      if (!provider.postToActive({ type: "translateCurrentPage" })) {
+        void window.showInformationMessage(NO_VIEWER);
+      }
+    }),
+    commands.registerCommand("pdfBilingual.translateDocument", () => {
+      const webview = provider.activeWebview();
+      if (webview === undefined) {
+        void window.showInformationMessage(NO_VIEWER);
+        return;
+      }
+      return bridge.translateDocument(webview);
+    }),
+  );
 }
 
 export function deactivate() {

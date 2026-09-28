@@ -1,0 +1,359 @@
+/**
+ * Translates sentences: cache lookup, batching by character budget, bounded
+ * concurrency, validation, and per-sentence retries for missing ids. Only
+ * successful translations are cached.
+ */
+
+import { cacheKey, type TranslationCache } from "./cache";
+import { ApiError, type ChatClient } from "./client";
+import { parseTranslations } from "./parse";
+import {
+  buildMessages,
+  buildSystemPrompt,
+  glossaryHash,
+  PROMPT_VERSION,
+  type SourceSentence,
+} from "./prompt";
+
+export interface TranslationResult {
+  id: string;
+  zh: string;
+  cacheKey: string;
+}
+
+export interface TranslationFailure {
+  id: string;
+  message: string;
+}
+
+export interface TranslatorOptions {
+  model: string;
+  targetLanguage: string;
+  glossary: Record<string, string>;
+  maxCharsPerRequest: number;
+  /** Parallel API requests. */
+  concurrency?: number;
+  /** Upper bound on sentences per request, to keep replies small. */
+  maxSentencesPerRequest?: number;
+}
+
+export interface TranslatorStats {
+  apiCalls: number;
+  cacheHits: number;
+  translated: number;
+  failed: number;
+  promptTokens: number;
+  completionTokens: number;
+  promptCacheHitTokens: number;
+}
+
+export interface TranslateOptions {
+  signal?: AbortSignal;
+  /** Called as soon as each translation is available (cache or API). */
+  onResult?: (result: TranslationResult) => void;
+}
+
+interface Pending {
+  key: string;
+  text: string;
+  group: string | undefined;
+  resolve: (zh: string) => void;
+  reject: (error: Error) => void;
+}
+
+export class Translator {
+  readonly #client: ChatClient;
+  readonly #cache: TranslationCache;
+  readonly #options: Required<TranslatorOptions>;
+  readonly #systemPrompt: string;
+  readonly #glossaryHash: string;
+  readonly #inflight = new Map<string, Promise<string>>();
+  readonly #slots: Semaphore;
+  readonly #log: (line: string) => void;
+  readonly stats: TranslatorStats = {
+    apiCalls: 0,
+    cacheHits: 0,
+    translated: 0,
+    failed: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+    promptCacheHitTokens: 0,
+  };
+
+  constructor(
+    client: ChatClient,
+    cache: TranslationCache,
+    options: TranslatorOptions,
+    log: (line: string) => void = () => {},
+  ) {
+    this.#client = client;
+    this.#cache = cache;
+    this.#options = { concurrency: 2, maxSentencesPerRequest: 40, ...options };
+    this.#systemPrompt = buildSystemPrompt(options.glossary);
+    this.#glossaryHash = glossaryHash(options.glossary);
+    this.#slots = new Semaphore(this.#options.concurrency);
+    this.#log = log;
+  }
+
+  /** Writes pending cache entries to disk. */
+  flush(): Promise<void> {
+    return this.#cache.flush();
+  }
+
+  keyFor(text: string): string {
+    return cacheKey({
+      text,
+      model: this.#options.model,
+      targetLanguage: this.#options.targetLanguage,
+      promptVersion: PROMPT_VERSION,
+      glossaryHash: this.#glossaryHash,
+    });
+  }
+
+  async translate(
+    sentences: readonly SourceSentence[],
+    { signal, onResult }: TranslateOptions = {},
+  ): Promise<{ results: TranslationResult[]; failures: TranslationFailure[] }> {
+    // Identical sentences (same cache key) are translated once.
+    const idsByKey = new Map<string, { text: string; group: string | undefined; ids: string[] }>();
+    for (const { id, text, group } of sentences) {
+      const key = this.keyFor(text);
+      const entry = idsByKey.get(key);
+      if (entry === undefined) {
+        idsByKey.set(key, { text, group, ids: [id] });
+      } else {
+        entry.ids.push(id);
+      }
+    }
+
+    const pending: Pending[] = [];
+    const waits: Promise<void>[] = [];
+    const results: TranslationResult[] = [];
+    const failures: TranslationFailure[] = [];
+    let cacheHits = 0;
+
+    const settle = (key: string, ids: string[], promise: Promise<string>) =>
+      promise.then(
+        (zh) => {
+          for (const id of ids) {
+            const result = { id, zh, cacheKey: key };
+            results.push(result);
+            onResult?.(result);
+          }
+        },
+        (error: unknown) => {
+          for (const id of ids) {
+            failures.push({ id, message: error instanceof Error ? error.message : String(error) });
+          }
+        },
+      );
+
+    // Register every new key as in flight synchronously, before any await, so
+    // that a concurrent call for the same sentence waits instead of requesting.
+    const owned: Pending[] = [];
+    for (const [key, { text, group, ids }] of idsByKey) {
+      const inflight = this.#inflight.get(key);
+      if (inflight !== undefined) {
+        waits.push(settle(key, ids, inflight));
+        continue;
+      }
+      let entry!: Pending;
+      const promise = new Promise<string>((resolve, reject) => {
+        entry = { key, text, group, resolve, reject };
+      });
+      this.#inflight.set(key, promise);
+      void promise
+        .finally(() => this.#inflight.delete(key))
+        .catch(() => {
+          // Failures are reported through `settle`.
+        });
+      owned.push(entry);
+      waits.push(settle(key, ids, promise));
+    }
+
+    for (const entry of owned) {
+      const cached = await this.#cache.get(entry.key);
+      if (cached === undefined) {
+        pending.push(entry);
+      } else {
+        cacheHits++;
+        entry.resolve(cached);
+      }
+    }
+
+    this.stats.cacheHits += cacheHits;
+    if (pending.length > 0 || cacheHits > 0) {
+      this.#log(`缓存命中 ${cacheHits} 句，需翻译 ${pending.length} 句`);
+    }
+    await Promise.all(this.#batches(pending).map((batch) => this.#runBatch(batch, signal)));
+    await Promise.all(waits);
+    return { results, failures };
+  }
+
+  /**
+   * Packs sentences into requests by character budget, keeping each paragraph
+   * in one request unless the paragraph alone exceeds the budget.
+   */
+  #batches(pending: Pending[]): Pending[][] {
+    const { maxCharsPerRequest, maxSentencesPerRequest } = this.#options;
+    const groups: Pending[][] = [];
+    for (const entry of pending) {
+      const last = groups.at(-1);
+      if (last !== undefined && entry.group !== undefined && last[0]?.group === entry.group) {
+        last.push(entry);
+      } else {
+        groups.push([entry]);
+      }
+    }
+
+    const batches: Pending[][] = [];
+    let batch: Pending[] = [];
+    let chars = 0;
+    const flush = () => {
+      if (batch.length > 0) {
+        batches.push(batch);
+        batch = [];
+        chars = 0;
+      }
+    };
+    for (const group of groups) {
+      const groupChars = group.reduce((sum, e) => sum + e.text.length, 0);
+      if (
+        chars + groupChars > maxCharsPerRequest ||
+        batch.length + group.length > maxSentencesPerRequest
+      ) {
+        flush();
+      }
+      for (const entry of group) {
+        // An oversized paragraph is split across requests.
+        if (
+          batch.length > 0 &&
+          (chars + entry.text.length > maxCharsPerRequest || batch.length >= maxSentencesPerRequest)
+        ) {
+          flush();
+        }
+        batch.push(entry);
+        chars += entry.text.length;
+      }
+    }
+    flush();
+    return batches;
+  }
+
+  async #runBatch(batch: Pending[], signal: AbortSignal | undefined): Promise<void> {
+    // Batch-local ids keep requests independent of page ids and let
+    // identical sentences from different pages share one request.
+    const sentences = batch.map((entry, i) => ({ id: `s${i + 1}`, text: entry.text }));
+    let found: Map<string, string>;
+    try {
+      const completion = await this.#slots.run(() => {
+        signal?.throwIfAborted();
+        this.stats.apiCalls++;
+        return this.#client.complete(buildMessages(this.#systemPrompt, sentences), {
+          maxTokens: maxTokensFor(sentences),
+          ...(signal === undefined ? {} : { signal }),
+        });
+      });
+      this.#recordUsage(completion.usage);
+      found = parseTranslations(
+        completion.content,
+        sentences.map((s) => s.id),
+      ).found;
+    } catch (error) {
+      const fatal =
+        signal?.aborted === true ||
+        (error instanceof ApiError && !error.retryable) ||
+        batch.length === 1;
+      if (fatal) {
+        this.#fail(batch, error);
+        return;
+      }
+      // A transient failure of a multi-sentence request: retry one by one.
+      this.#log(`批量请求失败（${String(error)}），改为逐句重试 ${batch.length} 句`);
+      await Promise.all(batch.map((entry) => this.#runBatch([entry], signal)));
+      return;
+    }
+
+    const missing: Pending[] = [];
+    for (const [i, entry] of batch.entries()) {
+      const zh = found.get(`s${i + 1}`);
+      if (zh === undefined) {
+        missing.push(entry);
+        continue;
+      }
+      await this.#cache.set(entry.key, zh);
+      this.stats.translated++;
+      entry.resolve(zh);
+    }
+
+    if (missing.length === 0) {
+      return;
+    }
+    if (batch.length === 1) {
+      this.#fail(missing, new Error("模型没有返回有效的译文"));
+      return;
+    }
+    this.#log(`返回结果缺少 ${missing.length} 句，逐句重试`);
+    await Promise.all(missing.map((entry) => this.#runBatch([entry], signal)));
+  }
+
+  #fail(entries: Pending[], error: unknown): void {
+    const reason = error instanceof Error ? error : new Error(String(error));
+    this.stats.failed += entries.length;
+    this.#log(`翻译失败 ${entries.length} 句：${reason.message}`);
+    for (const entry of entries) {
+      entry.reject(reason);
+    }
+  }
+
+  #recordUsage(
+    usage:
+      | { promptTokens: number; completionTokens: number; promptCacheHitTokens?: number }
+      | undefined,
+  ) {
+    if (usage === undefined) {
+      return;
+    }
+    this.stats.promptTokens += usage.promptTokens;
+    this.stats.completionTokens += usage.completionTokens;
+    this.stats.promptCacheHitTokens += usage.promptCacheHitTokens ?? 0;
+    this.#log(
+      `API 调用：输入 ${usage.promptTokens} tokens（上下文缓存命中 ${usage.promptCacheHitTokens ?? 0}），输出 ${usage.completionTokens} tokens`,
+    );
+  }
+}
+
+/** Output budget: Chinese output plus JSON overhead, with headroom against truncation. */
+function maxTokensFor(sentences: SourceSentence[]): number {
+  const chars = sentences.reduce((sum, s) => sum + s.text.length, 0);
+  return Math.min(8192, Math.ceil(chars * 0.8) + 30 * sentences.length + 256);
+}
+
+class Semaphore {
+  #available: number;
+  readonly #queue: (() => void)[] = [];
+
+  constructor(count: number) {
+    this.#available = Math.max(1, count);
+  }
+
+  async run<T>(task: () => Promise<T>): Promise<T> {
+    if (this.#available > 0) {
+      this.#available--;
+    } else {
+      await new Promise<void>((resolve) => {
+        this.#queue.push(resolve);
+      });
+    }
+    try {
+      return await task();
+    } finally {
+      const next = this.#queue.shift();
+      if (next === undefined) {
+        this.#available++;
+      } else {
+        next();
+      }
+    }
+  }
+}
