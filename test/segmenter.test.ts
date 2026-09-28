@@ -1,11 +1,9 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 import { describe, expect, it } from "vitest";
 
 import { HeuristicSegmenter } from "../src/webview/segmenter/heuristic";
 import { combineAccent, findSentenceEnds, lineJoin } from "../src/webview/segmenter/protect";
-import type { PageTextInput, Sentence } from "../src/webview/segmenter/types";
+import type { Sentence } from "../src/webview/segmenter/types";
+import { ATTENTION, hasFixture, loadFixture, TRACEMONKEY } from "./fixtures";
 
 function split(text: string): string[] {
   const out: string[] = [];
@@ -17,14 +15,14 @@ function split(text: string): string[] {
   return out;
 }
 
-function loadFixture(name: string): PageTextInput {
-  return JSON.parse(
-    readFileSync(join(import.meta.dirname, "fixtures", name), "utf8"),
-  ) as PageTextInput;
+type Paper = typeof TRACEMONKEY;
+
+function blocksOf(paper: Paper, page: number) {
+  return new HeuristicSegmenter().segmentPage(loadFixture(paper, page)).blocks;
 }
 
-function sentencesOf(name: string): Sentence[] {
-  return new HeuristicSegmenter().segmentPage(loadFixture(name)).blocks.flatMap((b) => b.sentences);
+function sentencesOf(paper: Paper, page: number): Sentence[] {
+  return blocksOf(paper, page).flatMap((b) => b.sentences);
 }
 
 describe("findSentenceEnds", () => {
@@ -92,7 +90,7 @@ describe("combineAccent", () => {
 });
 
 describe("HeuristicSegmenter on a two-column paper", () => {
-  const sentences = sentencesOf("compressed.tracemonkey-pldi-09.p2.json");
+  const sentences = sentencesOf(TRACEMONKEY, 2);
   const texts = sentences.map((s) => s.text);
 
   it("uses p{page}-b{block}-s{idx} ids", () => {
@@ -119,17 +117,14 @@ describe("HeuristicSegmenter on a two-column paper", () => {
   });
 
   it("detects code listings and skips them", () => {
-    const { blocks } = new HeuristicSegmenter().segmentPage(
-      loadFixture("compressed.tracemonkey-pldi-09.p2.json"),
-    );
-    const code = blocks.filter((b) => b.kind === "code");
+    const code = blocksOf(TRACEMONKEY, 2).filter((b) => b.kind === "code");
     expect(code.length).toBeGreaterThan(0);
     expect(code.every((b) => b.sentences.length === 0)).toBe(true);
     expect(texts.some((t) => t.includes("primes[k] = false"))).toBe(false);
   });
 
   it("maps sentences back to text layer spans and rectangles", () => {
-    const input = loadFixture("compressed.tracemonkey-pldi-09.p2.json");
+    const input = loadFixture(TRACEMONKEY, 2);
     const sentence = sentences.find((s) => s.text.startsWith("Every compiled trace contains"));
     expect(sentence).toBeDefined();
     if (sentence === undefined) {
@@ -148,34 +143,62 @@ describe("HeuristicSegmenter on a two-column paper", () => {
 });
 
 describe("block roles", () => {
-  const roles = (name: string) =>
-    new HeuristicSegmenter()
-      .segmentPage(loadFixture(name))
-      .blocks.map((b) => ({ role: b.role, level: b.level, text: b.text }));
-  const find = (name: string, prefix: string) => roles(name).find((b) => b.text.startsWith(prefix));
+  const find = (paper: Paper, page: number, prefix: string) =>
+    blocksOf(paper, page).find((b) => b.text.startsWith(prefix));
 
-  it("recognizes headings with levels", () => {
-    const title = find("compressed.tracemonkey-pldi-09.p1.json", "Trace-based Just-in-Time");
-    expect(title).toMatchObject({ role: "heading", level: 1 });
+  it("recognizes the title as a level-1 heading", () => {
+    expect(find(TRACEMONKEY, 1, "Trace-based Just-in-Time")).toMatchObject({
+      role: "heading",
+      level: 1,
+    });
   });
 
   it("recognizes lists, captions, figure labels, code and paragraphs", () => {
-    const tm = "compressed.tracemonkey-pldi-09.p2.json";
-    expect(find(tm, "• We explain an algorithm")?.role).toBe("list");
-    expect(find(tm, "Figure 1.")?.role).toBe("caption");
-    expect(find(tm, "Monitor")?.role).toBe("figure");
-    expect(find(tm, "1 for (var i")?.role).toBe("code");
-    expect(find(tm, "Nested loops can be difficult")?.role).toBe("paragraph");
+    expect(find(TRACEMONKEY, 2, "• We explain an algorithm")?.role).toBe("list");
+    expect(find(TRACEMONKEY, 2, "Figure 1.")?.role).toBe("caption");
+    expect(find(TRACEMONKEY, 2, "Monitor")?.role).toBe("figure");
+    expect(find(TRACEMONKEY, 2, "1 for (var i")?.role).toBe("code");
+    expect(find(TRACEMONKEY, 2, "Nested loops can be difficult")?.role).toBe("paragraph");
   });
 
   it("records one rectangle per line", () => {
-    const { blocks } = new HeuristicSegmenter().segmentPage(
-      loadFixture("compressed.tracemonkey-pldi-09.p2.json"),
-    );
-    const block = blocks.find((b) => b.text.startsWith("Nested loops can be difficult"));
+    const block = find(TRACEMONKEY, 2, "Nested loops can be difficult");
     // The paragraph spans 13 lines of the left column (y 622 to 502), top to bottom.
     expect(block?.lines).toHaveLength(13);
     const ys = block?.lines.map((r) => r.y) ?? [];
     expect(ys).toEqual(ys.toSorted((a, b) => b - a));
+  });
+});
+
+// "Attention Is All You Need" is downloaded on first use; skipped when offline.
+describe.skipIf(!hasFixture(ATTENTION, 3))("HeuristicSegmenter on a single-column paper", () => {
+  it("recognizes the title and numbered section headings", () => {
+    const title = blocksOf(ATTENTION, 1).find((b) => b.text === "Attention Is All You Need");
+    expect(title).toMatchObject({ role: "heading", level: 1 });
+    const intro = blocksOf(ATTENTION, 2).find((b) => b.text === "1 Introduction");
+    expect(intro?.role).toBe("heading");
+    const subsection = blocksOf(ATTENTION, 3).find(
+      (b) => b.text === "3.1 Encoder and Decoder Stacks",
+    );
+    expect(subsection?.role).toBe("heading");
+  });
+
+  it("splits sentences around citations and inline math", () => {
+    const texts = sentencesOf(ATTENTION, 3).map((s) => s.text);
+    expect(texts).toContain(
+      "Encoder: The encoder is composed of a stack of N = 6 identical layers.",
+    );
+    expect(texts).toContain("Each layer has two sub-layers.");
+    expect(texts).toContain(
+      "We employ a residual connection [11] around each of the two sub-layers, followed by layer normalization [1].",
+    );
+  });
+
+  it("keeps a paragraph together and drops page numbers", () => {
+    const blocks = blocksOf(ATTENTION, 2);
+    const paragraph = blocks.find((b) => b.text.startsWith("Recurrent models typically factor"));
+    expect(paragraph?.role).toBe("paragraph");
+    expect(paragraph?.sentences).toHaveLength(5);
+    expect(blocks.flatMap((b) => b.sentences).map((s) => s.text)).not.toContain("2");
   });
 });

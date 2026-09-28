@@ -1,6 +1,7 @@
 // Prints the segmentation of text-content fixtures, for manual inspection.
 //
-// Usage: node --experimental-strip-types tools/segment_fixture.ts <fixture.json>... [--sample N]
+// Usage: pnpm run segment <fixture.json>... [--sample N]
+// (fixtures from `pnpm run fixtures`, or `.cache/fixtures/` after `pnpm test`)
 
 import { readFileSync } from "node:fs";
 
