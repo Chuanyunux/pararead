@@ -38,7 +38,10 @@ interface PdfjsTextContent {
 
 interface PdfjsPageProxy {
   view: number[];
-  getTextContent(params?: { includeMarkedContent?: boolean; disableNormalization?: boolean }): Promise<PdfjsTextContent>;
+  getTextContent(params?: {
+    includeMarkedContent?: boolean;
+    disableNormalization?: boolean;
+  }): Promise<PdfjsTextContent>;
 }
 
 interface PdfjsPageView {
@@ -69,7 +72,11 @@ interface PdfjsViewer {
   annotationEditorMode: number;
   pagesPromise: Promise<void>;
   getPageView(index: number): PdfjsPageView | undefined;
-  scrollPageIntoView(params: { pageNumber: number; destArray?: unknown[]; allowNegativeOffset?: boolean }): void;
+  scrollPageIntoView(params: {
+    pageNumber: number;
+    destArray?: unknown[];
+    allowNegativeOffset?: boolean;
+  }): void;
   _layerProperties?: { annotationEditorUIManager?: { endCurrentEditing(): void } };
 }
 
