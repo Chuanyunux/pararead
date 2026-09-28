@@ -19,13 +19,13 @@
     "reader",
     "pararead"
   ],
-  "homepage": "https://github.com/OWNER/pararead#readme",
+  "homepage": "https://github.com/Chuanyunux/pararead#readme",
   "bugs": {
-    "url": "https://github.com/OWNER/pararead/issues"
+    "url": "https://github.com/Chuanyunux/pararead/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/OWNER/pararead.git"
+    "url": "https://github.com/Chuanyunux/pararead.git"
   },
   "license": "Apache-2.0",
   "author": "chuanyun",

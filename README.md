@@ -7,8 +7,8 @@
 **鼠标指向英文句子，译文就在它旁边的同一高度。**
 在 VS Code 里逐句对照阅读英文 PDF 论文。
 
-[![CI](https://github.com/OWNER/pararead/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/pararead/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/OWNER/pararead)](https://github.com/OWNER/pararead/releases)
+[![CI](https://github.com/Chuanyunux/pararead/actions/workflows/ci.yml/badge.svg)](https://github.com/Chuanyunux/pararead/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Chuanyunux/pararead)](https://github.com/Chuanyunux/pararead/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![VS Code](https://img.shields.io/badge/VS%20Code-%E2%89%A5%201.95-007ACC)](https://code.visualstudio.com/)
 
@@ -28,7 +28,7 @@
 
 ## 三步上手
 
-1. 从 [Releases](https://github.com/OWNER/pararead/releases) 下载 `.vsix`，在 VS Code 中运行 **Extensions: Install from VSIX...**。
+1. 从 [Releases](https://github.com/Chuanyunux/pararead/releases) 下载 `.vsix`，在 VS Code 中运行 **Extensions: Install from VSIX...**。
 2. 命令面板运行 **ParaRead: 设置 API Key**，填入 [DeepSeek](https://platform.deepseek.com/) 的 API Key。
 3. 用 VS Code 打开任意 PDF。正在阅读的页面会自动翻译，把鼠标放到句子上即可对照。
 
@@ -100,7 +100,7 @@
 - [ ] 生词本：Alt+双击单词查词、导出 Anki
 - [ ] 上架 VS Code 插件市场与 Open VSX
 
-欢迎在 [Issues](https://github.com/OWNER/pararead/issues) 中提需求和反馈问题。
+欢迎在 [Issues](https://github.com/Chuanyunux/pararead/issues) 中提需求和反馈问题。
 
 ## 开发
 
@@ -126,7 +126,7 @@ pnpm run check      # 类型检查、lint、格式检查
 - ✍️ **Still a full PDF reader**: PDF.js highlight, comment and drawing tools; `Ctrl+S` saves annotations into the PDF.
 - 🔌 **Your model**: DeepSeek by default, any OpenAI-compatible API, or a local Ollama (fully offline). Translations are cached per sentence, so reopening a paper costs nothing.
 
-**Install**: download the `.vsix` from [Releases](https://github.com/OWNER/pararead/releases), run **Extensions: Install from VSIX...** (VS Code ≥ 1.95), then **ParaRead: 设置 API Key** (set API key) and open a PDF.
+**Install**: download the `.vsix` from [Releases](https://github.com/Chuanyunux/pararead/releases), run **Extensions: Install from VSIX...** (VS Code ≥ 1.95), then **ParaRead: 设置 API Key** (set API key) and open a PDF.
 
 **Privacy**: only the sentences to translate are sent to the configured API. The API key lives in VS Code's secret storage and never reaches the webview, which has no network access. PDFs are only modified when you save annotations.
 
