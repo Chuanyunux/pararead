@@ -135,7 +135,8 @@ body.bilingualResizing #outerContainer {
   margin-block: 0 0.9em;
 }
 
-.bilingualBlock.paragraph .bilingualTarget {
+/* First-line indent is a Chinese and Japanese typesetting convention. */
+.bilingualContent:is(:lang(zh), :lang(ja)) .bilingualBlock.paragraph .bilingualTarget {
   text-indent: 2em;
 }
 

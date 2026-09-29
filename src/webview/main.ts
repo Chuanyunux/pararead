@@ -20,6 +20,7 @@
 // Loads the pdf.js viewer (kept external to the bundle; resolved at runtime
 // relative to dist/webview/main.mjs).
 import "../../assets/pdf.js/web/viewer.mjs";
+import { DEFAULT_TARGET_LANGUAGE } from "../languages";
 import type { HostToWebview, TranslateRange, WebviewToHost } from "../messages";
 import { Connector } from "./connector";
 import { HighlightOverlay, scrollToSentence } from "./highlight-overlay";
@@ -98,6 +99,10 @@ async function start() {
   });
   const selection = new SelectionController();
   let hoverEnabled = config["selectOnHover"] !== false;
+  let targetLanguage =
+    typeof config["targetLanguage"] === "string"
+      ? config["targetLanguage"]
+      : DEFAULT_TARGET_LANGUAGE;
   // An annotation editor tool (highlight, ink, free text, comment...) is active.
   const editing = () => app.pdfViewer.annotationEditorMode > 0;
   // Entering an editor clears the selection so it does not cover the annotation work.
@@ -110,6 +115,7 @@ async function start() {
     store,
     translations,
     selection,
+    targetLanguage,
     vscode,
     hoverEnabled: () => hoverEnabled,
     selectionEnabled: () => !editing(),
@@ -169,6 +175,13 @@ async function start() {
     const message = event.data;
     if (message.type === "settings") {
       hoverEnabled = message.selectOnHover;
+      if (message.targetLanguage !== targetLanguage) {
+        // Translations into the previous language no longer apply.
+        targetLanguage = message.targetLanguage;
+        selection.clear();
+        translations.reset();
+        panel.setTargetLanguage(targetLanguage, store.readyPages());
+      }
     }
     if (translations.handle(message) || (await saveBridge.handle(message))) {
       return;

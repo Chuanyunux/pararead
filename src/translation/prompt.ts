@@ -1,12 +1,18 @@
 /**
  * Prompt for sentence-level academic translation. The system message is kept
- * byte-identical across requests (for a given glossary) so that DeepSeek's
- * prefix cache can serve it.
+ * byte-identical across requests (for a given language and glossary) so that
+ * DeepSeek's prefix cache can serve it.
  */
 
 import { createHash } from "node:crypto";
 
-/** Bump when the prompt changes in a way that should invalidate cached translations. */
+import { type LanguageInfo, languageInfo, SOURCE_LANGUAGE } from "../languages";
+
+/**
+ * Bump when the prompt changes in a way that should invalidate cached
+ * translations. Version 1 translations into Chinese remain valid under the
+ * language-neutral prompt, so it was not bumped for it.
+ */
 export const PROMPT_VERSION = "1";
 
 export interface ChatMessage {
@@ -33,24 +39,39 @@ export function glossaryHash(glossary: Record<string, string>): string {
     .slice(0, 12);
 }
 
-export function buildSystemPrompt(glossary: Record<string, string>): string {
+function describe(info: LanguageInfo): string {
+  return info.nativeName === info.englishName
+    ? info.englishName
+    : `${info.englishName} (${info.nativeName})`;
+}
+
+export function buildSystemPrompt(
+  glossary: Record<string, string>,
+  targetLanguage: string,
+  sourceLanguage: string = SOURCE_LANGUAGE,
+): string {
+  const target = languageInfo(targetLanguage);
+  const source = languageInfo(sourceLanguage);
+  if (target === undefined || source === undefined) {
+    throw new Error(`Unsupported language pair: ${sourceLanguage} → ${targetLanguage}`);
+  }
   const lines = [
-    "你是一名专业的学术论文翻译。把用户给出的英文句子逐句翻译成简体中文学术语体。",
+    `You are a professional translator of academic papers. Translate each sentence the user gives from ${describe(source)} into ${describe(target)}, in the register of academic writing.`,
     "",
-    "要求：",
-    "1. 逐句翻译：每个 id 对应一条译文，不合并、不拆分、不遗漏，id 原样返回。",
-    "2. 数学公式、变量与符号、代码与标识符、模型或系统名称（如 GPT-4、BERT、PyTorch）、缩写（如 LLM、RLHF）、引用标记（如 [12]、(Vaswani et al., 2017)）一律保持原样。",
-    "3. 句子可能因 PDF 排版而不完整，按原样翻译，不要补写、解释或添加注释。",
-    "4. 译文准确、简洁，符合中文学术写作习惯。",
-    "5. 只输出一个 JSON 对象，不要输出任何其他文字。",
+    "Rules:",
+    "1. Translate sentence by sentence: exactly one translation per id; do not merge, split or skip sentences; return every id unchanged.",
+    "2. Keep unchanged: mathematical formulas, variables and symbols, code and identifiers, names of models, systems and datasets (e.g. GPT-4, BERT, PyTorch), abbreviations (e.g. LLM, RLHF) and citation markers (e.g. [12], (Vaswani et al., 2017)).",
+    "3. Sentences may be incomplete because of the PDF layout; translate them as they are, without completing, explaining or adding notes.",
+    `4. Be accurate and concise, following the conventions of academic writing in ${target.englishName}.${target.promptNote === undefined ? "" : ` ${target.promptNote}`}`,
+    "5. Output a single json object and nothing else.",
     "",
-    "输出格式（json）示例：",
-    '输入：{"sentences":[{"id":"s1","en":"We propose a new attention mechanism."},{"id":"s2","en":"It outperforms BERT [4]."}]}',
-    '输出：{"translations":[{"id":"s1","zh":"我们提出了一种新的注意力机制。"},{"id":"s2","zh":"它的性能优于 BERT [4]。"}]}',
+    "Output format (json) example:",
+    'Input: {"sentences":[{"id":"s1","text":"<sentence 1>"},{"id":"s2","text":"<sentence 2>"}]}',
+    `Output: {"translations":[{"id":"s1","translation":"<${target.englishName} translation of sentence 1>"},{"id":"s2","translation":"<${target.englishName} translation of sentence 2>"}]}`,
   ];
   const terms = sortedGlossary(glossary);
   if (terms.length > 0) {
-    lines.push("", "术语表（出现以下术语时必须使用对应译法）：");
+    lines.push("", "Glossary (always use these renderings for these terms):");
     for (const [term, rendering] of terms) {
       lines.push(`- ${term} → ${rendering}`);
     }
@@ -59,7 +80,7 @@ export function buildSystemPrompt(glossary: Record<string, string>): string {
 }
 
 export function buildUserMessage(sentences: SourceSentence[]): string {
-  return JSON.stringify({ sentences: sentences.map(({ id, text }) => ({ id, en: text })) });
+  return JSON.stringify({ sentences: sentences.map(({ id, text }) => ({ id, text })) });
 }
 
 export function buildMessages(systemPrompt: string, sentences: SourceSentence[]): ChatMessage[] {

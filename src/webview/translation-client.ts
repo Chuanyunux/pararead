@@ -11,7 +11,7 @@ import type { SentenceStore } from "./sentence-store";
 export type TranslationState =
   | { status: "none" }
   | { status: "pending" }
-  | { status: "done"; zh: string }
+  | { status: "done"; translation: string }
   | { status: "error"; message: string };
 
 const NONE: TranslationState = { status: "none" };
@@ -74,8 +74,8 @@ export class TranslationClient {
     switch (message.type) {
       case "translations":
         if (this.#requests.has(message.requestId)) {
-          for (const { id, zh } of message.items) {
-            this.#set(id, { status: "done", zh });
+          for (const { id, translation } of message.items) {
+            this.#set(id, { status: "done", translation });
           }
         }
         return true;

@@ -11,7 +11,7 @@ export interface SentenceToTranslate {
 
 export interface TranslatedItem {
   id: string;
-  zh: string;
+  translation: string;
 }
 
 export interface FailedItem {
@@ -35,7 +35,13 @@ export type HostToWebview =
   /** Command: translate the whole document as job `jobId`. */
   | { type: "translateAll"; jobId: number }
   | { type: "cancelTranslateAll"; jobId: number }
-  | { type: "settings"; translateRange: TranslateRange; selectOnHover: boolean };
+  | {
+      type: "settings";
+      translateRange: TranslateRange;
+      selectOnHover: boolean;
+      /** Resolved target language code. */
+      targetLanguage: string;
+    };
 
 export type WebviewToHost =
   /** Annotations changed since the last save. */

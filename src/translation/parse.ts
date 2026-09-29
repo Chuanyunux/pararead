@@ -16,9 +16,16 @@ export function parseTranslations(content: string, expectedIds: readonly string[
     if (typeof entry !== "object" || entry === null) {
       continue;
     }
-    const { id, zh } = entry as { id?: unknown; zh?: unknown };
-    if (typeof id === "string" && expected.has(id) && typeof zh === "string" && zh.trim() !== "") {
-      found.set(id, zh.trim());
+    // `zh` is the field name of the original Chinese-only prompt.
+    const { id, translation, zh } = entry as { id?: unknown; translation?: unknown; zh?: unknown };
+    const text = typeof translation === "string" ? translation : zh;
+    if (
+      typeof id === "string" &&
+      expected.has(id) &&
+      typeof text === "string" &&
+      text.trim() !== ""
+    ) {
+      found.set(id, text.trim());
     }
   }
   return { found, missing: expectedIds.filter((id) => !found.has(id)) };

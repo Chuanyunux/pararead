@@ -8,6 +8,7 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 interface CacheEntry {
+  /** The translation, in any target language (named when only Chinese existed; kept for compatibility). */
   zh: string;
   /** Unix time (ms) of the write. */
   t: number;
@@ -63,8 +64,8 @@ export class TranslationCache {
     return (await this.#shard(key)).get(key)?.zh;
   }
 
-  async set(key: string, zh: string): Promise<void> {
-    (await this.#shard(key)).set(key, { zh, t: Date.now() });
+  async set(key: string, translation: string): Promise<void> {
+    (await this.#shard(key)).set(key, { zh: translation, t: Date.now() });
     this.#dirty.add(shardName(key));
     this.#scheduleFlush();
   }

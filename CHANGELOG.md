@@ -4,6 +4,30 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-09-29
+
+### Added
+
+- Translation into 11 languages: Simplified and Traditional Chinese, English,
+  Japanese, Korean, French, German, Spanish, Portuguese, Russian and Italian
+  (`pararead.targetLanguage`). The default `auto` follows the VS Code display
+  language and falls back to English. Changing it re-translates open papers.
+- Per-language glossary sections, e.g. `{"ja": {"attention": "アテンション"}}`,
+  which take precedence over general entries.
+- Sentences already written in the target language are shown as they are,
+  without an API call.
+
+### Changed
+
+- The translation panel adapts to the target language: spaces between
+  sentences, and first-line indentation only for Chinese and Japanese.
+- The translation prompt is language-neutral. Existing Chinese translations in
+  the cache remain valid.
+
+### Fixed
+
+- Changing settings sent the previous values to open viewers.
+
 ## [0.1.2] - 2026-09-29
 
 ### Changed

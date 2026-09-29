@@ -1,5 +1,6 @@
 /** Translation settings (`pararead.*`), independent of the VS Code API. */
 
+import { DEFAULT_TARGET_LANGUAGE, languageInfo, resolveTargetLanguage } from "../languages";
 import type { TranslateRange } from "../messages";
 
 export interface TranslationConfig {
@@ -8,13 +9,14 @@ export interface TranslationConfig {
   temperature: number;
   requestTimeoutMs: number;
   maxCharsPerRequest: number;
-  /** English term → preferred Chinese rendering. */
+  /** Source term → preferred rendering in the target language. */
   glossary: Record<string, string>;
   translateRange: TranslateRange;
   /** Custom cache directory; empty for the extension's global storage. */
   cacheDir: string;
   /** Extra top-level request body fields, e.g. DeepSeek's `thinking` switch. */
   extraBody: Record<string, unknown>;
+  /** Resolved language code (never "auto"). */
   targetLanguage: string;
 }
 
@@ -28,7 +30,7 @@ export const DEFAULT_CONFIG: TranslationConfig = {
   translateRange: "nearby",
   cacheDir: "",
   extraBody: { thinking: { type: "disabled" } },
-  targetLanguage: "zh-CN",
+  targetLanguage: DEFAULT_TARGET_LANGUAGE,
 };
 
 type Getter = <T>(key: string, fallback: T) => T;
@@ -37,8 +39,36 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Reads and sanitizes settings; invalid values fall back to the defaults. */
-export function readTranslationConfig(get: Getter): TranslationConfig {
+/**
+ * The glossary for one target language. Flat `term: rendering` entries apply
+ * to every language; entries under a language code (`{"ja": {...}}`) apply to
+ * that language only and take precedence.
+ */
+export function glossaryFor(raw: unknown, targetLanguage: string): Record<string, string> {
+  const glossary: Record<string, string> = {};
+  if (!isRecord(raw)) {
+    return glossary;
+  }
+  const add = (entries: Record<string, unknown>) => {
+    for (const [term, rendering] of Object.entries(entries)) {
+      if (term.trim() !== "" && typeof rendering === "string") {
+        glossary[term.trim()] = rendering;
+      }
+    }
+  };
+  add(raw);
+  const specific = raw[targetLanguage];
+  if (isRecord(specific) && languageInfo(targetLanguage) !== undefined) {
+    add(specific);
+  }
+  return glossary;
+}
+
+/**
+ * Reads and sanitizes settings; invalid values fall back to the defaults.
+ * `displayLanguage` is VS Code's UI language, used for `targetLanguage: "auto"`.
+ */
+export function readTranslationConfig(get: Getter, displayLanguage = "en"): TranslationConfig {
   const d = DEFAULT_CONFIG;
   const number = (key: string, fallback: number, min: number) => {
     const value = get<unknown>(key, fallback);
@@ -49,15 +79,11 @@ export function readTranslationConfig(get: Getter): TranslationConfig {
     return typeof value === "string" ? value.trim() : fallback;
   };
 
-  const glossary: Record<string, string> = {};
-  const rawGlossary = get<unknown>("glossary", d.glossary);
-  if (isRecord(rawGlossary)) {
-    for (const [term, rendering] of Object.entries(rawGlossary)) {
-      if (term.trim() !== "" && typeof rendering === "string") {
-        glossary[term.trim()] = rendering;
-      }
-    }
-  }
+  const targetLanguage = resolveTargetLanguage(
+    get<unknown>("targetLanguage", "auto"),
+    displayLanguage,
+  );
+  const glossary = glossaryFor(get<unknown>("glossary", d.glossary), targetLanguage);
 
   const range = get<unknown>("translateRange", d.translateRange);
   const extraBody = get<unknown>("extraBody", d.extraBody);
@@ -73,6 +99,6 @@ export function readTranslationConfig(get: Getter): TranslationConfig {
       range === "page" || range === "nearby" || range === "manual" ? range : d.translateRange,
     cacheDir: string("cacheDir", d.cacheDir),
     extraBody: isRecord(extraBody) ? extraBody : d.extraBody,
-    targetLanguage: d.targetLanguage,
+    targetLanguage,
   };
 }

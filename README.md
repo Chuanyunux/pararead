@@ -23,7 +23,8 @@
 读英文论文时，整篇翻译看不出原文说了什么，逐段复制翻译又要不停切换窗口。ParaRead 把译文放在原文旁边，**一句对一句**：
 
 - 🎯 **逐句对照**：鼠标停在句子上，原句加框，一条箭头指向对应的译文，两者保持在同一水平线；滚动论文时译文跟着滚。
-- 📄 **保留原文格式**：译文面板按标题、段落、列表、图表说明、脚注、代码排版，像一篇中文文档，而不是一句一行的列表。
+- 📄 **保留原文格式**：译文面板按标题、段落、列表、图表说明、脚注、代码排版，像一篇正式文档，而不是一句一行的列表。
+- 🌐 **译成 11 种语言**：简体中文、繁體中文、English、日本語、한국어、Français、Deutsch、Español、Português、Русский、Italiano，默认跟随 VS Code 界面语言。
 - ✍️ **仍然是完整的 PDF 阅读器**：高亮、批注、手绘都能用，`Ctrl+S` 直接保存回 PDF。
 
 ## 三步上手
@@ -68,18 +69,19 @@
 <details>
 <summary>全部设置</summary>
 
-| 设置                          | 默认值                               | 说明                                                                     |
-| ----------------------------- | ------------------------------------ | ------------------------------------------------------------------------ |
-| `pararead.baseUrl`            | `https://api.deepseek.com`           | OpenAI 兼容接口地址；Ollama 用 `http://localhost:11434/v1`               |
-| `pararead.model`              | `deepseek-flash`                     | 模型名，例如 `deepseek-v4-pro`                                           |
-| `pararead.temperature`        | `0.7`                                | 越低术语译法越一致                                                       |
-| `pararead.extraBody`          | `{"thinking": {"type": "disabled"}}` | 附加请求字段；DeepSeek 默认开启思考模式，翻译时关闭。其他服务可设为 `{}` |
-| `pararead.translateRange`     | `nearby`                             | 自动翻译范围：`page` 当前页 / `nearby` 当前页及前后页 / `manual` 仅手动  |
-| `pararead.glossary`           | `{}`                                 | 术语表，例如 `{"attention": "注意力", "token": "token"}`                 |
-| `pararead.selectOnHover`      | `true`                               | 鼠标悬停即选中；关闭后仅单击选中                                         |
-| `pararead.maxCharsPerRequest` | `3000`                               | 单次请求的原文字符上限                                                   |
-| `pararead.requestTimeout`     | `60000`                              | 请求超时（毫秒）                                                         |
-| `pararead.cacheDir`           | 空                                   | 自定义缓存目录                                                           |
+| 设置                          | 默认值                               | 说明                                                                                                                  |
+| ----------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `pararead.baseUrl`            | `https://api.deepseek.com`           | OpenAI 兼容接口地址；Ollama 用 `http://localhost:11434/v1`                                                            |
+| `pararead.targetLanguage`     | `auto`                               | 译文语言；`auto` 跟随 VS Code 界面语言，也可选 `zh-CN`、`zh-TW`、`en`、`ja`、`ko`、`fr`、`de`、`es`、`pt`、`ru`、`it` |
+| `pararead.model`              | `deepseek-flash`                     | 模型名，例如 `deepseek-v4-pro`                                                                                        |
+| `pararead.temperature`        | `0.7`                                | 越低术语译法越一致                                                                                                    |
+| `pararead.extraBody`          | `{"thinking": {"type": "disabled"}}` | 附加请求字段；DeepSeek 默认开启思考模式，翻译时关闭。其他服务可设为 `{}`                                              |
+| `pararead.translateRange`     | `nearby`                             | 自动翻译范围：`page` 当前页 / `nearby` 当前页及前后页 / `manual` 仅手动                                               |
+| `pararead.glossary`           | `{}`                                 | 术语表，例如 `{"attention": "注意力"}`；也可按语言设置：`{"ja": {"attention": "アテンション"}}`                       |
+| `pararead.selectOnHover`      | `true`                               | 鼠标悬停即选中；关闭后仅单击选中                                                                                      |
+| `pararead.maxCharsPerRequest` | `3000`                               | 单次请求的原文字符上限                                                                                                |
+| `pararead.requestTimeout`     | `60000`                              | 请求超时（毫秒）                                                                                                      |
+| `pararead.cacheDir`           | 空                                   | 自定义缓存目录                                                                                                        |
 
 </details>
 
@@ -119,7 +121,7 @@ pnpm run check      # 类型检查、lint、格式检查
 
 ## English
 
-**ParaRead** — hover over an English sentence and its translation sits right beside it, at the same height. A sentence-by-sentence bilingual reader for PDF papers in VS Code (English → Chinese).
+**ParaRead** — hover over an English sentence and its translation sits right beside it, at the same height. A sentence-by-sentence bilingual reader for English PDF papers in VS Code, translating into 11 languages: Chinese (Simplified and Traditional), Japanese, Korean, French, German, Spanish, Portuguese, Russian, Italian and English. The target language follows the VS Code display language by default (`pararead.targetLanguage`).
 
 - 🎯 **Sentence linking**: hovering a sentence outlines it, draws an arrow to its translation and keeps both level; the translation scrolls with the paper. Click to translate its paragraph right away; click empty space or press `Esc` to clear.
 - 📄 **Layout-preserving translation panel**: headings, paragraphs, lists, captions, footnotes and code, page by page, with an optional view of the original.

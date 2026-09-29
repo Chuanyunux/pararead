@@ -129,8 +129,8 @@ export class TranslationBridge {
         sentences.map(({ id, text, group }) => ({ id, text, group })),
         {
           signal,
-          onResult: ({ id, zh }) => {
-            buffer.push({ id, zh });
+          onResult: ({ id, translation }) => {
+            buffer.push({ id, translation });
             timer ??= setTimeout(flush, FLUSH_DELAY_MS);
           },
         },

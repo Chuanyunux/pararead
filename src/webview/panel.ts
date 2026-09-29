@@ -4,6 +4,7 @@
  * flow inline), lists, captions, footnotes and code, page by page.
  */
 
+import { languageInfo } from "../languages";
 import { HOVER_DWELL_MS } from "./pointer-select";
 import type { Block, PageSegmentation, Sentence } from "./segmenter/types";
 import type { SelectionController } from "./selection";
@@ -33,6 +34,8 @@ export interface PanelOptions {
   selectionEnabled: () => boolean;
   /** A sentence was clicked in the panel. */
   onActivate: (sentence: Sentence) => void;
+  /** Language of the translations (BCP 47 code). */
+  targetLanguage: string;
 }
 
 export class TranslationPanel {
@@ -49,6 +52,8 @@ export class TranslationPanel {
   readonly #blockElements = new Map<string, HTMLElement>();
   #state: PanelState;
   #activeId: string | null = null;
+  /** Whether the target language separates sentences with spaces. */
+  #spaced = true;
 
   constructor({
     store,
@@ -58,6 +63,7 @@ export class TranslationPanel {
     hoverEnabled,
     selectionEnabled,
     onActivate,
+    targetLanguage,
   }: PanelOptions) {
     this.#store = store;
     this.#translations = translations;
@@ -158,12 +164,28 @@ export class TranslationPanel {
       const span = this.sentenceElement(id);
       const sentence = this.#store.get(id);
       if (span !== null && sentence !== undefined) {
-        renderSentence(span, sentence, state);
+        renderSentence(span, sentence, state, this.#spaced);
       }
     });
     selection.onChange((current) => this.#setActive(current?.sentence.id ?? null));
 
+    this.#applyLanguage(targetLanguage);
     this.#apply();
+  }
+
+  /** Switches the translation language and re-renders the given pages. */
+  setTargetLanguage(code: string, pages: readonly PageSegmentation[]): void {
+    this.#applyLanguage(code);
+    this.reset();
+    for (const page of pages) {
+      this.#renderPage(page);
+    }
+  }
+
+  #applyLanguage(code: string): void {
+    // Fonts, line breaking and (for Chinese/Japanese) paragraph indentation.
+    this.#content.lang = code;
+    this.#spaced = languageInfo(code)?.spaced ?? true;
   }
 
   /** The scrolling element of the panel. */
@@ -350,7 +372,7 @@ export class TranslationPanel {
     for (const sentence of block.sentences) {
       const span = element("span", "bilingualSentence");
       span.dataset["id"] = sentence.id;
-      renderSentence(span, sentence, this.#translations.state(sentence.id));
+      renderSentence(span, sentence, this.#translations.state(sentence.id), this.#spaced);
       if (sentence.id === this.#activeId) {
         span.classList.add("active");
       }
@@ -365,10 +387,16 @@ export class TranslationPanel {
 }
 
 /** Shows the translation, or the original (dimmed) until it is available. */
-function renderSentence(span: HTMLElement, sentence: Sentence, state: TranslationState): void {
+function renderSentence(
+  span: HTMLElement,
+  sentence: Sentence,
+  state: TranslationState,
+  spaced: boolean,
+): void {
   span.dataset["status"] = state.status;
-  // English sentences need a separating space; Chinese ones do not.
-  span.textContent = state.status === "done" ? state.zh : `${sentence.text} `;
+  // Sentences are separated by a space, except in Chinese and Japanese.
+  span.textContent =
+    state.status === "done" ? `${state.translation}${spaced ? " " : ""}` : `${sentence.text} `;
   span.title = state.status === "error" ? `翻译失败，点击重试：${state.message}` : "";
 }
 

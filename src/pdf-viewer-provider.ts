@@ -127,6 +127,7 @@ export class PDFViewerProvider implements CustomEditorProvider<PDFDocument> {
             type: "settings",
             translateRange: translation.translateRange,
             selectOnHover: selectOnHover(),
+            targetLanguage: translation.targetLanguage,
           });
         }
       }),
@@ -362,6 +363,7 @@ export class PDFViewerProvider implements CustomEditorProvider<PDFDocument> {
       wasmUrl: withTrailingSlash(resolvePdfJsURI("web", "wasm")),
       imageResourcesPath: withTrailingSlash(resolvePdfJsURI("web", "images")),
       translateRange: this.translation.translateRange,
+      targetLanguage: this.translation.targetLanguage,
       selectOnHover: config.get<boolean>("selectOnHover", true),
     };
 

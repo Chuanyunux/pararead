@@ -7,6 +7,7 @@ import { join } from "node:path";
 
 import {
   type Disposable,
+  env,
   EventEmitter,
   type ExtensionContext,
   type LogOutputChannel,
@@ -31,7 +32,7 @@ export const SET_API_KEY_COMMAND = "pararead.setApiKey";
 
 function readConfig(): TranslationConfig {
   const config = workspace.getConfiguration("pararead");
-  return readTranslationConfig((key, fallback) => config.get(key, fallback));
+  return readTranslationConfig((key, fallback) => config.get(key, fallback), env.language);
 }
 
 /** Local servers (Ollama and the like) usually don't need a key. */
@@ -68,8 +69,8 @@ export class TranslationService implements Disposable {
       this.#onDidChangeSettings,
       workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration("pararead")) {
-          void this.#reset();
-          this.#onDidChangeSettings.fire();
+          // Notify only once the new settings are read.
+          void this.#reset().then(() => this.#onDidChangeSettings.fire());
         }
       }),
       context.secrets.onDidChange((e) => {
@@ -82,6 +83,11 @@ export class TranslationService implements Disposable {
 
   get translateRange(): TranslateRange {
     return this.#config.translateRange;
+  }
+
+  /** Resolved target language code (never "auto"). */
+  get targetLanguage(): string {
+    return this.#config.targetLanguage;
   }
 
   get log(): LogOutputChannel {
@@ -190,7 +196,7 @@ export class TranslationService implements Disposable {
       (line) => this.#log.info(line),
     );
     this.#log.info(
-      `翻译服务：${config.baseUrl}，模型 ${config.model}，缓存目录 ${this.#cache.dir}`,
+      `翻译服务：${config.baseUrl}，模型 ${config.model}，目标语言 ${config.targetLanguage}，缓存目录 ${this.#cache.dir}`,
     );
     return this.#translator;
   }

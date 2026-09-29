@@ -16,9 +16,9 @@ import { parseTranslations } from "../src/translation/parse";
 import { buildSystemPrompt, type ChatMessage, glossaryHash } from "../src/translation/prompt";
 import { Translator } from "../src/translation/translator";
 
-/** Fake model: translates each sentence to `ZH(<en>)`, with scripted misbehaviour. */
+/** Fake model: translates each sentence to `ZH(<text>)`, with scripted misbehaviour. */
 class FakeClient implements ChatClient {
-  calls: { sentences: { id: string; en: string }[] }[] = [];
+  calls: { sentences: { id: string; text: string }[] }[] = [];
   /** Per call index: drop these batch-local ids from the reply. */
   drop = new Map<number, string[]>();
   /** Per call index: reply with this raw content instead. */
@@ -29,7 +29,7 @@ class FakeClient implements ChatClient {
   async complete(messages: ChatMessage[]): Promise<Completion> {
     const index = this.calls.length;
     const { sentences } = JSON.parse(messages[1]?.content ?? "{}") as {
-      sentences: { id: string; en: string }[];
+      sentences: { id: string; text: string }[];
     };
     this.calls.push({ sentences });
     const error = this.errors.get(index);
@@ -46,8 +46,8 @@ class FakeClient implements ChatClient {
         translations: [
           ...sentences
             .filter((s) => !dropped.has(s.id))
-            .map((s) => ({ id: s.id, zh: `ZH(${s.en})` })),
-          { id: "unexpected", zh: "ignored" },
+            .map((s) => ({ id: s.id, translation: `ZH(${s.text})` })),
+          { id: "unexpected", translation: "ignored" },
         ],
       }),
       usage: { promptTokens: 100, completionTokens: 50, promptCacheHitTokens: 80 },
@@ -127,7 +127,7 @@ describe("Translator", () => {
       onResult: (r) => streamed.push(r.id),
     });
     expect(failures).toEqual([]);
-    expect(results.find((r) => r.id === "p1-b1-s2")?.zh).toBe("ZH(It works well.)");
+    expect(results.find((r) => r.id === "p1-b1-s2")?.translation).toBe("ZH(It works well.)");
     expect(streamed.toSorted()).toEqual(sentences.map((s) => s.id).toSorted());
     expect(client.calls).toHaveLength(1);
     await first.flush();
@@ -138,7 +138,7 @@ describe("Translator", () => {
     const reopened = await second.translate(sentences);
     expect(again.calls).toHaveLength(0);
     expect(second.stats.cacheHits).toBe(3);
-    expect(reopened.results.map((r) => r.zh)).toContain("ZH(We propose a model.)");
+    expect(reopened.results.map((r) => r.translation)).toContain("ZH(We propose a model.)");
   });
 
   it("retries missing ids one by one and never caches failures", async () => {
@@ -151,14 +151,14 @@ describe("Translator", () => {
 
     expect(results.map((r) => r.id).toSorted()).toEqual(["p1-b1-s1", "p1-b2-s1"]);
     expect(failures).toEqual([{ id: "p1-b1-s2", message: "模型没有返回有效的译文" }]);
-    expect(client.calls[1]?.sentences).toEqual([{ id: "s1", en: "It works well." }]);
+    expect(client.calls[1]?.sentences).toEqual([{ id: "s1", text: "It works well." }]);
     expect(await cache.get(translator.keyFor("It works well."))).toBeUndefined();
 
     // The failed sentence is requested again next time; the others come from cache.
     const retry = await translator.translate(sentences);
     expect(retry.failures).toEqual([]);
     expect(client.calls).toHaveLength(3);
-    expect(client.calls[2]?.sentences).toEqual([{ id: "s1", en: "It works well." }]);
+    expect(client.calls[2]?.sentences).toEqual([{ id: "s1", text: "It works well." }]);
   });
 
   it("falls back to single requests after a transient batch error", async () => {
@@ -187,7 +187,7 @@ describe("Translator", () => {
     });
     await translator.translate(sentences);
     // "We propose a model." + "It works well." (33 chars) fit; the next paragraph does not.
-    expect(client.calls.map((c) => c.sentences.map((s) => s.en))).toEqual([
+    expect(client.calls.map((c) => c.sentences.map((s) => s.text))).toEqual([
       ["We propose a model.", "It works well."],
       ["Results follow."],
     ]);
@@ -313,11 +313,11 @@ describe("OpenAICompatibleClient", () => {
 
 describe("prompt and config", () => {
   it("adds the glossary to the system prompt deterministically", () => {
-    const prompt = buildSystemPrompt({ token: "token", attention: "注意力" });
+    const prompt = buildSystemPrompt({ token: "token", attention: "注意力" }, "zh-CN");
     // DeepSeek JSON mode requires the word "json" in the prompt.
     expect(prompt).toContain("json");
     expect(prompt.indexOf("- attention → 注意力")).toBeLessThan(prompt.indexOf("- token → token"));
-    expect(buildSystemPrompt({ attention: "注意力", token: "token" })).toBe(prompt);
+    expect(buildSystemPrompt({ attention: "注意力", token: "token" }, "zh-CN")).toBe(prompt);
   });
 
   it("sanitizes settings", () => {

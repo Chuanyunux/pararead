@@ -4,6 +4,7 @@
  * successful translations are cached.
  */
 
+import { isAlreadyInLanguage } from "../languages";
 import { cacheKey, type TranslationCache } from "./cache";
 import { ApiError, type ChatClient } from "./client";
 import { parseTranslations } from "./parse";
@@ -17,7 +18,7 @@ import {
 
 export interface TranslationResult {
   id: string;
-  zh: string;
+  translation: string;
   cacheKey: string;
 }
 
@@ -57,7 +58,7 @@ interface Pending {
   key: string;
   text: string;
   group: string | undefined;
-  resolve: (zh: string) => void;
+  resolve: (translation: string) => void;
   reject: (error: Error) => void;
 }
 
@@ -89,7 +90,7 @@ export class Translator {
     this.#client = client;
     this.#cache = cache;
     this.#options = { concurrency: 2, maxSentencesPerRequest: 40, ...options };
-    this.#systemPrompt = buildSystemPrompt(options.glossary);
+    this.#systemPrompt = buildSystemPrompt(options.glossary, options.targetLanguage);
     this.#glossaryHash = glossaryHash(options.glossary);
     this.#slots = new Semaphore(this.#options.concurrency);
     this.#log = log;
@@ -114,9 +115,22 @@ export class Translator {
     sentences: readonly SourceSentence[],
     { signal, onResult }: TranslateOptions = {},
   ): Promise<{ results: TranslationResult[]; failures: TranslationFailure[] }> {
+    // Sentences already in the target language are shown as they are.
+    const results: TranslationResult[] = [];
+    const toTranslate: SourceSentence[] = [];
+    for (const sentence of sentences) {
+      if (isAlreadyInLanguage(sentence.text, this.#options.targetLanguage)) {
+        const result = { id: sentence.id, translation: sentence.text, cacheKey: "" };
+        results.push(result);
+        onResult?.(result);
+      } else {
+        toTranslate.push(sentence);
+      }
+    }
+
     // Identical sentences (same cache key) are translated once.
     const idsByKey = new Map<string, { text: string; group: string | undefined; ids: string[] }>();
-    for (const { id, text, group } of sentences) {
+    for (const { id, text, group } of toTranslate) {
       const key = this.keyFor(text);
       const entry = idsByKey.get(key);
       if (entry === undefined) {
@@ -128,15 +142,14 @@ export class Translator {
 
     const pending: Pending[] = [];
     const waits: Promise<void>[] = [];
-    const results: TranslationResult[] = [];
     const failures: TranslationFailure[] = [];
     let cacheHits = 0;
 
     const settle = (key: string, ids: string[], promise: Promise<string>) =>
       promise.then(
-        (zh) => {
+        (translation) => {
           for (const id of ids) {
-            const result = { id, zh, cacheKey: key };
+            const result = { id, translation, cacheKey: key };
             results.push(result);
             onResult?.(result);
           }
@@ -276,14 +289,14 @@ export class Translator {
 
     const missing: Pending[] = [];
     for (const [i, entry] of batch.entries()) {
-      const zh = found.get(`s${i + 1}`);
-      if (zh === undefined) {
+      const translation = found.get(`s${i + 1}`);
+      if (translation === undefined) {
         missing.push(entry);
         continue;
       }
-      await this.#cache.set(entry.key, zh);
+      await this.#cache.set(entry.key, translation);
       this.stats.translated++;
-      entry.resolve(zh);
+      entry.resolve(translation);
     }
 
     if (missing.length === 0) {

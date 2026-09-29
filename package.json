@@ -1,8 +1,8 @@
 {
   "name": "pararead",
   "displayName": "ParaRead: Bilingual PDF Paper Reader",
-  "version": "0.1.2",
-  "description": "Read English PDF papers sentence by sentence: hover a sentence and its Chinese translation sits right beside it, at the same height. Layout-preserving translation panel, DeepSeek or any OpenAI-compatible API, annotations saved into the PDF.",
+  "version": "0.2.0",
+  "description": "Read English PDF papers sentence by sentence: hover a sentence and its translation (Chinese, Japanese, Korean, French, German, Spanish and more) sits right beside it, at the same height. Layout-preserving translation panel, DeepSeek or any OpenAI-compatible API, annotations saved into the PDF.",
   "categories": [
     "Visualization",
     "Other"
@@ -14,6 +14,8 @@
     "translation",
     "bilingual",
     "chinese",
+    "japanese",
+    "korean",
     "arxiv",
     "deepseek",
     "reader",
@@ -133,13 +135,63 @@
           "minimum": 200,
           "description": "单次请求的原文字符上限；同一段落尽量放在同一次请求中。"
         },
+        "pararead.targetLanguage": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "zh-CN",
+            "zh-TW",
+            "en",
+            "ja",
+            "ko",
+            "fr",
+            "de",
+            "es",
+            "pt",
+            "ru",
+            "it"
+          ],
+          "enumItemLabels": [
+            "Auto",
+            "简体中文",
+            "繁體中文",
+            "English",
+            "日本語",
+            "한국어",
+            "Français",
+            "Deutsch",
+            "Español",
+            "Português",
+            "Русский",
+            "Italiano"
+          ],
+          "enumDescriptions": [
+            "跟随 VS Code 界面语言；不支持时使用英文",
+            "Simplified Chinese",
+            "Traditional Chinese",
+            "English",
+            "Japanese",
+            "Korean",
+            "French",
+            "German",
+            "Spanish",
+            "Portuguese",
+            "Russian",
+            "Italian"
+          ],
+          "markdownDescription": "译文语言。`auto` 跟随 VS Code 的界面语言（不在支持列表中时使用英文）。修改后已打开的论文会按新语言重新翻译。"
+        },
         "pararead.glossary": {
           "type": "object",
           "default": {},
           "additionalProperties": {
-            "type": "string"
+            "type": [
+              "string",
+              "object"
+            ]
           },
-          "markdownDescription": "术语表：英文术语 → 译法，例如 `{\"attention\": \"注意力\", \"token\": \"token\"}`。修改后相关句子会重新翻译。"
+          "markdownDescription": "术语表：原文术语 → 译法。直接写的条目适用于所有语言，例如 `{\"attention\": \"注意力\"}`；也可以按语言分别设置，例如 `{\"ja\": {\"attention\": \"アテンション\"}}`（优先于通用条目）。修改后相关句子会重新翻译。"
         },
         "pararead.translateRange": {
           "type": "string",

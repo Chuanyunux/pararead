@@ -49,6 +49,11 @@ export class SentenceStore {
     return promise;
   }
 
+  /** All pages segmented so far, in page order. */
+  readyPages(): PageSegmentation[] {
+    return [...this.#ready.values()].toSorted((a, b) => a.page - b.page);
+  }
+
   /** The segmentation of a page if it is already available (no loading). */
   cached(pageNumber: number): PageSegmentation | undefined {
     return this.#ready.get(pageNumber);
