@@ -6,6 +6,7 @@
 import { join } from "node:path";
 
 import {
+  ConfigurationTarget,
   type Disposable,
   env,
   EventEmitter,
@@ -16,6 +17,7 @@ import {
   workspace,
 } from "vscode";
 
+import { LANGUAGES, languageInfo } from "../languages";
 import type { TranslateRange } from "../messages";
 import { TranslationCache } from "./cache";
 import { OpenAICompatibleClient } from "./client";
@@ -31,6 +33,13 @@ import {
 
 const SECRET_KEY = "pararead.apiKey";
 export const SET_API_KEY_COMMAND = "pararead.setApiKey";
+export const CHOOSE_TARGET_LANGUAGE_COMMAND = "pararead.chooseTargetLanguage";
+
+/**
+ * Share of a request's sentences shown untranslated, above which an automatic
+ * target language probably matches the paper's language.
+ */
+const PASS_THROUGH_SHARE = 0.5;
 
 function readConfig(): TranslationConfig {
   const config = workspace.getConfiguration("pararead");
@@ -55,6 +64,7 @@ export class TranslationService implements Disposable {
   #cache: TranslationCache;
   #translator: Translator | undefined;
   #missingKeyNotified = false;
+  #passThroughNotified = false;
 
   readonly #onDidChangeSettings = new EventEmitter<void>();
   /** Fired when `pararead.*` settings change. */
@@ -118,7 +128,34 @@ export class TranslationService implements Disposable {
     }
     const result = await translator.translate(sentences, options);
     void translator.flush();
+    const passedThrough = result.results.filter((r) => r.cacheKey === "").length;
+    if (passedThrough >= 3 && passedThrough >= sentences.length * PASS_THROUGH_SHARE) {
+      this.#notifyPassThrough();
+    }
     return result;
+  }
+
+  /** Quick pick for `pararead.targetLanguage`, saved in the user settings. */
+  async chooseTargetLanguage(): Promise<void> {
+    const current = this.#config.targetLanguageIsAuto ? "auto" : this.#config.targetLanguage;
+    const items = [
+      {
+        label: l10n.t("Auto"),
+        description: l10n.t("Follow the VS Code display language"),
+        code: "auto",
+      },
+      ...LANGUAGES.map((l) => ({ label: l.nativeName, description: l.englishName, code: l.code })),
+    ].map((item) => (item.code === current ? { ...item, label: `$(check) ${item.label}` } : item));
+    const choice = await window.showQuickPick(items, {
+      title: l10n.t("ParaRead: Translation Language"),
+      placeHolder: l10n.t("Language to translate papers into"),
+      matchOnDescription: true,
+    });
+    if (choice !== undefined) {
+      await workspace
+        .getConfiguration("pararead")
+        .update("targetLanguage", choice.code, ConfigurationTarget.Global);
+    }
   }
 
   async setApiKey(): Promise<void> {
@@ -224,6 +261,32 @@ export class TranslationService implements Disposable {
       `Translation API ${config.baseUrl}, model ${config.model}, ${config.sourceLanguage} → ${config.targetLanguage}, cache ${this.#cache.dir}`,
     );
     return this.#translator;
+  }
+
+  /**
+   * Most sentences are already in the automatic target language (e.g. an
+   * English paper with an English VS Code): offer to choose another language.
+   */
+  #notifyPassThrough(): void {
+    if (this.#passThroughNotified || !this.#config.targetLanguageIsAuto) {
+      return;
+    }
+    this.#passThroughNotified = true;
+    const language = languageInfo(this.#config.targetLanguage)?.englishName ?? "";
+    const choose = l10n.t("Choose Language");
+    void window
+      .showInformationMessage(
+        l10n.t(
+          "The paper is already in {0}, the VS Code display language, so it is shown untranslated. Choose the language to translate into?",
+          language,
+        ),
+        choose,
+      )
+      .then((choice) => {
+        if (choice === choose) {
+          void this.chooseTargetLanguage();
+        }
+      });
   }
 
   #notifyMissingKey(): void {

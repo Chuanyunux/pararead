@@ -1,7 +1,7 @@
 {
   "name": "pararead",
   "displayName": "ParaRead: Bilingual PDF Paper Reader",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Read PDF papers sentence by sentence: hover a sentence and its translation sits right beside it, at the same height. Translates between 11 languages, including English, Chinese, Japanese, Korean, French, German and Spanish. Layout-preserving translation panel, DeepSeek or any OpenAI-compatible API, annotations saved into the PDF.",
   "categories": [
     "Visualization",
@@ -291,6 +291,11 @@
       {
         "command": "pararead.setApiKey",
         "title": "%command.setApiKey%",
+        "category": "ParaRead"
+      },
+      {
+        "command": "pararead.chooseTargetLanguage",
+        "title": "%command.chooseTargetLanguage%",
         "category": "ParaRead"
       },
       {

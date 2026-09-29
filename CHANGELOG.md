@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [Semantic Versioning](https://semver.org/).
 
+## [0.4.2] - 2026-09-29
+
+### Added
+
+- **ParaRead: Choose Translation Language** command to pick the translation
+  language from a list.
+- When most sentences are already in the automatic translation language (e.g.
+  an English paper in an English VS Code), ParaRead says so once and offers to
+  choose another language, instead of silently showing the original.
+
+### Fixed
+
+- Setting the API key no longer relies on VS Code's secret change event to
+  retry the open pages.
+
 ## [0.4.1] - 2026-09-29
 
 ### Fixed

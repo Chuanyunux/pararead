@@ -11,6 +11,8 @@ import type { HostToWebview } from "../src/messages";
 
 type Listener<T> = (event: T) => void;
 
+const settingUpdate = vi.hoisted(() => vi.fn(async () => undefined));
+
 vi.mock("vscode", () => {
   class EventEmitter<T> {
     readonly #listeners = new Set<Listener<T>>();
@@ -30,11 +32,13 @@ vi.mock("vscode", () => {
   const format = (text: string, ...args: unknown[]) =>
     text.replaceAll(/\{(\d+)\}/gu, (_, i: string) => String(args[Number(i)]));
   return {
+    ConfigurationTarget: { Global: 1 },
     EventEmitter,
     env: { language: "zh-cn" },
     l10n: { t: format },
     ProgressLocation: { Notification: 15 },
     window: {
+      showQuickPick: vi.fn(async () => undefined),
       createOutputChannel: () => ({
         info: vi.fn(),
         warn: vi.fn(),
@@ -46,7 +50,10 @@ vi.mock("vscode", () => {
       showWarningMessage: vi.fn(async () => undefined),
     },
     workspace: {
-      getConfiguration: () => ({ get: (_key: string, fallback: unknown) => fallback }),
+      getConfiguration: () => ({
+        get: (_key: string, fallback: unknown) => fallback,
+        update: settingUpdate,
+      }),
       onDidChangeConfiguration: () => ({ dispose: vi.fn() }),
     },
   };
@@ -54,7 +61,8 @@ vi.mock("vscode", () => {
 
 const { TranslationService } = await import("../src/translation/service");
 const { TranslationBridge } = await import("../src/translation-bridge");
-const { EventEmitter } = await import("vscode");
+const vscode = await import("vscode");
+const { EventEmitter } = vscode;
 
 /** SecretStorage; `onDidChange` fires only when `fireEvents` is set. */
 function fakeSecrets(fireEvents: boolean) {
@@ -171,4 +179,48 @@ describe("translation host", () => {
       service.dispose();
     },
   );
+
+  it("offers to choose a language when the paper is in the automatic target language", async () => {
+    const requests: { auth: string | null; system: string }[] = [];
+    vi.stubGlobal("fetch", fakeDeepSeek(requests));
+    vscode.env.language = "en";
+    const secrets = fakeSecrets(false);
+    await secrets.store("pararead.apiKey", "sk-test");
+    const context = {
+      secrets,
+      globalStorageUri: { fsPath: dir },
+      subscriptions: [],
+    } as unknown as ConstructorParameters<typeof TranslationService>[0];
+    const info = vi.mocked(vscode.window.showInformationMessage);
+    info.mockResolvedValueOnce("Choose Language" as never);
+    vi.mocked(vscode.window.showQuickPick).mockImplementationOnce(
+      async (items) => (await items).find((i) => i.description === "Simplified Chinese") as never,
+    );
+
+    const service = new TranslationService(context);
+    const english = [
+      "We propose a new model for translation.",
+      "It is based on the attention mechanism.",
+      "The results are shown in the table.",
+    ].map((text, i) => ({ id: `s${i}`, text }));
+    const { results } = await service.translate(english, {});
+
+    // English paper, English VS Code: shown as is, and the user is asked.
+    expect(results.map((r) => r.translation)).toEqual(english.map((s) => s.text));
+    expect(requests).toHaveLength(0);
+    expect(info).toHaveBeenCalledWith(
+      expect.stringContaining("already in English"),
+      "Choose Language",
+    );
+    await vi.waitFor(() =>
+      expect(settingUpdate).toHaveBeenCalledWith("targetLanguage", "zh-CN", 1),
+    );
+
+    // Asked once per session.
+    info.mockClear();
+    await service.translate(english, {});
+    expect(info).not.toHaveBeenCalled();
+    vscode.env.language = "zh-cn";
+    service.dispose();
+  });
 });

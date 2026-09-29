@@ -94,6 +94,8 @@
 
 **支持哪些语言的论文？** 横排的中文、日文、韩文、俄文和英、法、德、西、葡、意文论文。竖排版面和从右向左书写的语言（如阿拉伯语）暂不支持。
 
+**面板里显示的是原文，没有翻译？** 译文语言默认跟随 VS Code 界面语言。英文界面下读英文论文时，句子已经是“译文语言”，所以按原文显示，ParaRead 会弹出提示。运行命令 **ParaRead: Choose Translation Language**（中文界面为“选择译文语言”），或在设置中修改 `pararead.targetLanguage` 即可。
+
 **可以只用本地模型吗？** 可以。把 `pararead.baseUrl` 设为本地 Ollama 地址、`pararead.extraBody` 设为 `{}` 即可，无需 API Key。
 
 **会影响我已有的 PDF 标注吗？** 不会。ParaRead 的选中框只是临时显示，不写入 PDF；鼠标在已有标注上时也不会触发选中。
@@ -131,7 +133,7 @@ pnpm run check      # 类型检查、lint、格式检查
 - ✍️ **Still a full PDF reader**: PDF.js highlight, comment and drawing tools; `Ctrl+S` saves annotations into the PDF.
 - 🔌 **Your model**: DeepSeek by default, any OpenAI-compatible API, or a local Ollama (fully offline). Translations are cached per sentence, so reopening a paper costs nothing.
 
-**Install**: download the `.vsix` from [Releases](https://github.com/Chuanyunux/pararead/releases), run **Extensions: Install from VSIX...** (VS Code ≥ 1.95), then **ParaRead: Set API Key** and open a PDF. The interface is in English or Chinese, following VS Code.
+**Install**: download the `.vsix` from [Releases](https://github.com/Chuanyunux/pararead/releases), run **Extensions: Install from VSIX...** (VS Code ≥ 1.95), then **ParaRead: Set API Key** and open a PDF. The interface is in English or Chinese, following VS Code. With an English VS Code, run **ParaRead: Choose Translation Language** first: English papers are otherwise shown untranslated.
 
 **Privacy**: only the sentences to translate are sent to the configured API. The API key lives in VS Code's secret storage and never reaches the webview, which has no network access. PDFs are only modified when you save annotations.
 

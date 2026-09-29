@@ -13,6 +13,12 @@
   "Translating the paper": "翻译整篇论文",
   "{0} / {1} pages": "{0} / {1} 页",
   "Open a PDF in ParaRead first.": "请先在 ParaRead 中打开一个 PDF。",
+  "Auto": "自动",
+  "Follow the VS Code display language": "跟随 VS Code 界面语言",
+  "ParaRead: Translation Language": "ParaRead: 译文语言",
+  "Language to translate papers into": "论文要翻译成的语言",
+  "Choose Language": "选择语言",
+  "The paper is already in {0}, the VS Code display language, so it is shown untranslated. Choose the language to translate into?": "论文已经是 VS Code 界面语言（{0}），因此按原文显示。要选择译文语言吗？",
 
   "Invalid request (400). Check the model and extraBody settings.": "请求格式错误（400），请检查 model 与 extraBody 设置。",
   "Invalid API key (401). Set the API key again.": "API Key 无效（401），请重新设置 API Key。",

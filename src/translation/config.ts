@@ -24,6 +24,8 @@ export interface TranslationConfig {
   extraBody: Record<string, unknown>;
   /** Resolved language code (never "auto"). */
   targetLanguage: string;
+  /** Whether `targetLanguage` was derived from the VS Code display language. */
+  targetLanguageIsAuto: boolean;
   /** Language code of the papers, or "auto" to detect it per sentence. */
   sourceLanguage: string;
 }
@@ -39,6 +41,7 @@ export const DEFAULT_CONFIG: TranslationConfig = {
   cacheDir: "",
   extraBody: { thinking: { type: "disabled" } },
   targetLanguage: DEFAULT_TARGET_LANGUAGE,
+  targetLanguageIsAuto: true,
   sourceLanguage: AUTO_SOURCE,
 };
 
@@ -88,10 +91,8 @@ export function readTranslationConfig(get: Getter, displayLanguage = "en"): Tran
     return typeof value === "string" ? value.trim() : fallback;
   };
 
-  const targetLanguage = resolveTargetLanguage(
-    get<unknown>("targetLanguage", "auto"),
-    displayLanguage,
-  );
+  const targetSetting = get<unknown>("targetLanguage", "auto");
+  const targetLanguage = resolveTargetLanguage(targetSetting, displayLanguage);
   const glossary = glossaryFor(get<unknown>("glossary", d.glossary), targetLanguage);
 
   const range = get<unknown>("translateRange", d.translateRange);
@@ -109,6 +110,8 @@ export function readTranslationConfig(get: Getter, displayLanguage = "en"): Tran
     cacheDir: string("cacheDir", d.cacheDir),
     extraBody: isRecord(extraBody) ? extraBody : d.extraBody,
     targetLanguage,
+    targetLanguageIsAuto:
+      typeof targetSetting !== "string" || languageInfo(targetSetting) === undefined,
     sourceLanguage: resolveSourceLanguage(get<unknown>("sourceLanguage", d.sourceLanguage)),
   };
 }

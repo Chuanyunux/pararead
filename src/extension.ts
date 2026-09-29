@@ -21,7 +21,11 @@ import { commands, type ExtensionContext, l10n, window } from "vscode";
 
 import { PDFViewerProvider } from "./pdf-viewer-provider";
 import { TranslationBridge } from "./translation-bridge";
-import { SET_API_KEY_COMMAND, TranslationService } from "./translation/service";
+import {
+  CHOOSE_TARGET_LANGUAGE_COMMAND,
+  SET_API_KEY_COMMAND,
+  TranslationService,
+} from "./translation/service";
 
 export function activate(context: ExtensionContext): void {
   const noViewer = () => window.showInformationMessage(l10n.t("Open a PDF in ParaRead first."));
@@ -33,6 +37,9 @@ export function activate(context: ExtensionContext): void {
     translation,
     PDFViewerProvider.register(provider),
     commands.registerCommand(SET_API_KEY_COMMAND, () => translation.setApiKey()),
+    commands.registerCommand(CHOOSE_TARGET_LANGUAGE_COMMAND, () =>
+      translation.chooseTargetLanguage(),
+    ),
     commands.registerCommand("pararead.clearCache", () => translation.clearCache()),
     commands.registerCommand("pararead.translatePage", () => {
       if (!provider.postToActive({ type: "translateCurrentPage" })) {
