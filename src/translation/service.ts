@@ -79,9 +79,10 @@ export class TranslationService implements Disposable {
         }
       }),
       this.#onDidChangeApiKey,
+      // Changes from other windows.
       context.secrets.onDidChange((e) => {
         if (e.key === SECRET_KEY) {
-          void this.#reset().then(() => this.#onDidChangeApiKey.fire());
+          void this.#keyChanged();
         }
       }),
     );
@@ -136,11 +137,14 @@ export class TranslationService implements Disposable {
     }
     if (key.trim() === "") {
       await this.#context.secrets.delete(SECRET_KEY);
+      await this.#keyChanged();
       void window.showInformationMessage(l10n.t("The API key was removed."));
       return;
     }
     await this.#context.secrets.store(SECRET_KEY, key.trim());
     this.#missingKeyNotified = false;
+    // Don't rely on `secrets.onDidChange` for changes made in this window.
+    await this.#keyChanged();
     void window.showInformationMessage(l10n.t("The API key was saved."));
   }
 
@@ -177,6 +181,12 @@ export class TranslationService implements Disposable {
     this.#config = readConfig();
     this.#cache = new TranslationCache(this.#cacheDir());
     this.#translator = undefined;
+  }
+
+  /** Rebuilds the translator with the new key and tells the viewers to retry. */
+  async #keyChanged(): Promise<void> {
+    await this.#reset();
+    this.#onDidChangeApiKey.fire();
   }
 
   async #getTranslator(): Promise<Translator | undefined> {
