@@ -59,6 +59,9 @@ export class TranslationService implements Disposable {
   readonly #onDidChangeSettings = new EventEmitter<void>();
   /** Fired when `pararead.*` settings change. */
   readonly onDidChangeSettings = this.#onDidChangeSettings.event;
+  readonly #onDidChangeApiKey = new EventEmitter<void>();
+  /** Fired when the API key is set or removed. */
+  readonly onDidChangeApiKey = this.#onDidChangeApiKey.event;
 
   constructor(context: ExtensionContext) {
     this.#context = context;
@@ -75,9 +78,10 @@ export class TranslationService implements Disposable {
           void this.#reset().then(() => this.#onDidChangeSettings.fire());
         }
       }),
+      this.#onDidChangeApiKey,
       context.secrets.onDidChange((e) => {
         if (e.key === SECRET_KEY) {
-          void this.#reset();
+          void this.#reset().then(() => this.#onDidChangeApiKey.fire());
         }
       }),
     );

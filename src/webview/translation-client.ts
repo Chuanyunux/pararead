@@ -101,6 +101,15 @@ export class TranslationClient {
         this.#range = message.translateRange;
         this.#applyRange(this.#app.pdfViewer.currentPageNumber);
         return true;
+      case "retryFailed":
+        // Clear stale errors (e.g. "API key not set"), then translate the range again.
+        for (const [id, state] of this.#states) {
+          if (state.status === "error") {
+            this.#set(id, NONE);
+          }
+        }
+        this.#applyRange(this.#app.pdfViewer.currentPageNumber);
+        return true;
       default:
         return false;
     }

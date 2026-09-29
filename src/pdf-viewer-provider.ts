@@ -132,6 +132,11 @@ export class PDFViewerProvider implements CustomEditorProvider<PDFDocument> {
           });
         }
       }),
+      translation.onDidChangeApiKey(() => {
+        for (const webviewPanel of this.webviews.all()) {
+          this.post(webviewPanel.webview, { type: "retryFailed" });
+        }
+      }),
     );
   }
 

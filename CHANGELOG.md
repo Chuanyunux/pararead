@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [Semantic Versioning](https://semver.org/).
 
+## [0.4.1] - 2026-09-29
+
+### Fixed
+
+- Setting the API key after opening a paper now translates the open pages right
+  away. Before, sentences that had failed with "The API key is not set" stayed
+  untranslated until clicked or the paper was reopened.
+
 ## [0.4.0] - 2026-09-29
 
 ### Added

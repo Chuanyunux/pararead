@@ -35,6 +35,8 @@ export type HostToWebview =
   /** Command: translate the whole document as job `jobId`. */
   | { type: "translateAll"; jobId: number }
   | { type: "cancelTranslateAll"; jobId: number }
+  /** The API key changed: failed sentences may succeed now. */
+  | { type: "retryFailed" }
   | {
       type: "settings";
       translateRange: TranslateRange;
