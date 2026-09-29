@@ -25,5 +25,13 @@ also be exercised in a browser with `pnpm run harness` (see README).
   不要提交论文或从论文提取的文本（多数论文不允许再分发），测试数据会生成到 `.cache/`。
 - Changes to PDF.js go through `patches/` (see "Updating PDF.js" in the README).
   对 PDF.js 的修改请通过 `patches/` 补丁机制。
-- By contributing you agree that your contribution is licensed under the
-  Apache License 2.0. 提交贡献即表示同意以 Apache-2.0 许可发布。
+
+## Contributor License Agreement / 贡献者许可协议
+
+Before a pull request can be merged, please sign the
+[Contributor License Agreement](CLA.md). CLA Assistant asks you to do this with
+one click on your first pull request. You keep the copyright in your
+contribution; the CLA lets the project remain Apache-2.0 today and adjust its
+licensing in the future without contacting every contributor.
+
+首次提交 PR 时，CLA Assistant 机器人会请你一键签署 [贡献者许可协议](CLA.md)，签署后才能合并。你保留贡献内容的版权；协议让项目现在继续以 Apache-2.0 开源，将来调整许可时无需逐一联系每位贡献者。

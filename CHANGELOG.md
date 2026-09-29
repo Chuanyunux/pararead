@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [Semantic Versioning](https://semver.org/).
 
+## [0.1.2] - 2026-09-29
+
+### Changed
+
+- The product name is ParaRead in every language; the Chinese alias was dropped.
+- Contributions now require signing the Contributor License Agreement (CLA.md).
+
 ## [0.1.1] - 2026-09-28
 
 Prepares the extension for the VS Code Marketplace and Open VSX.
@@ -17,7 +24,7 @@ Prepares the extension for the VS Code Marketplace and Open VSX.
 
 ## [0.1.0] - 2026-09-28
 
-First public release of ParaRead (并读). Based on [vscode-pdf](https://github.com/mathematic-inc/vscode-pdf)
+First public release of ParaRead. Based on [vscode-pdf](https://github.com/mathematic-inc/vscode-pdf)
 0.2.5 (PDF.js 6.2.108).
 
 ### Added

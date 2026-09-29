@@ -1,8 +1,8 @@
 {
   "name": "pararead",
   "displayName": "ParaRead: Bilingual PDF Paper Reader",
-  "version": "0.1.1",
-  "description": "并读 · Read English PDF papers sentence by sentence: hover a sentence and its Chinese translation sits right beside it, at the same height. Layout-preserving translation panel, DeepSeek or any OpenAI-compatible API, annotations saved into the PDF.",
+  "version": "0.1.2",
+  "description": "Read English PDF papers sentence by sentence: hover a sentence and its Chinese translation sits right beside it, at the same height. Layout-preserving translation panel, DeepSeek or any OpenAI-compatible API, annotations saved into the PDF.",
   "categories": [
     "Visualization",
     "Other"

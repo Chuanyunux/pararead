@@ -25,6 +25,7 @@ pdfjs_version.txt
 pnpm-lock.yaml
 pnpm-workspace.yaml
 CONTRIBUTING.md
+CLA.md
 pdf-bilingual-reader-*.md
 # PDF.js demo document (used by the tests only)
 assets/pdf.js/web/compressed.tracemonkey-pldi-09.pdf
