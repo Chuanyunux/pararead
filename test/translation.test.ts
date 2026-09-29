@@ -150,7 +150,14 @@ describe("Translator", () => {
     const { results, failures } = await translator.translate(sentences);
 
     expect(results.map((r) => r.id).toSorted()).toEqual(["p1-b1-s1", "p1-b2-s1"]);
-    expect(failures).toEqual([{ id: "p1-b1-s2", message: "模型没有返回有效的译文" }]);
+    expect(failures).toEqual([
+      {
+        id: "p1-b1-s2",
+        message: "The model returned no valid translation.",
+        code: "noTranslation",
+        args: [],
+      },
+    ]);
     expect(client.calls[1]?.sentences).toEqual([{ id: "s1", text: "It works well." }]);
     expect(await cache.get(translator.keyFor("It works well."))).toBeUndefined();
 
@@ -163,7 +170,7 @@ describe("Translator", () => {
 
   it("falls back to single requests after a transient batch error", async () => {
     const client = new FakeClient();
-    client.errors.set(0, new ApiError("503", 503, true));
+    client.errors.set(0, new ApiError("http", [503, "overloaded"], 503, true));
     const translator = new Translator(client, new TranslationCache(dir), options);
     const { failures } = await translator.translate(sentences);
     expect(failures).toEqual([]);
@@ -172,7 +179,7 @@ describe("Translator", () => {
 
   it("does not retry fatal errors such as an invalid key", async () => {
     const client = new FakeClient();
-    client.errors.set(0, new ApiError("API Key 无效（401）", 401, false));
+    client.errors.set(0, new ApiError("unauthorized", [], 401, false));
     const translator = new Translator(client, new TranslationCache(dir), options);
     const { failures } = await translator.translate(sentences);
     expect(failures).toHaveLength(3);
@@ -295,6 +302,7 @@ describe("OpenAICompatibleClient", () => {
     const unauthorized = fakeFetch([() => new Response("bad key", { status: 401 })]);
     const failing = new OpenAICompatibleClient({ ...clientOptions, fetch: unauthorized.fetch });
     await expect(failing.complete([], { maxTokens: 10 })).rejects.toMatchObject({
+      code: "unauthorized",
       status: 401,
       retryable: false,
     });

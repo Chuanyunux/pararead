@@ -5,6 +5,7 @@
  */
 
 import { languageInfo } from "../languages";
+import { t } from "./i18n";
 import { HOVER_DWELL_MS } from "./pointer-select";
 import type { Block, PageSegmentation, Sentence } from "./segmenter/types";
 import type { SelectionController } from "./selection";
@@ -71,17 +72,17 @@ export class TranslationPanel {
     this.#state = { open: true, width: DEFAULT_WIDTH, showSource: false, ...readState(vscode) };
 
     this.#root = element("aside", "bilingualPanel");
-    this.#root.setAttribute("aria-label", "译文");
+    this.#root.setAttribute("aria-label", t("panelTitle"));
     const splitter = element("div", "bilingualSplitter");
     splitter.setAttribute("role", "separator");
     splitter.setAttribute("aria-orientation", "vertical");
 
     const header = element("header", "bilingualHeader");
-    header.append(element("span", "bilingualTitle", "译文"));
+    header.append(element("span", "bilingualTitle", t("panelTitle")));
     this.#pageLabel = element("span", "bilingualPageLabel");
-    this.#sourceToggle = element("button", "bilingualHeaderButton", "原文");
+    this.#sourceToggle = element("button", "bilingualHeaderButton", t("sourceButton"));
     this.#sourceToggle.type = "button";
-    this.#sourceToggle.title = "在每段译文下显示原文";
+    this.#sourceToggle.title = t("sourceButtonTitle");
     this.#sourceToggle.addEventListener("click", () => {
       this.#state = { ...this.#state, showSource: !this.#state.showSource };
       this.#apply();
@@ -93,13 +94,7 @@ export class TranslationPanel {
 
     this.#body = element("div", "bilingualBody");
     this.#content = element("div", "bilingualContent");
-    this.#content.append(
-      element(
-        "p",
-        "bilingualEmpty",
-        "滚动 PDF 即可看到译文；鼠标停在句子上可对照，单击空白处取消。",
-      ),
-    );
+    this.#content.append(element("p", "bilingualEmpty", t("emptyHint")));
     this.#body.append(this.#content);
     this.#root.append(splitter, header, this.#body);
     document.body.append(this.#root);
@@ -107,8 +102,9 @@ export class TranslationPanel {
     this.#toggle = document.createElement("button");
     this.#toggle.className = "toolbarButton bilingualToggle";
     this.#toggle.type = "button";
-    this.#toggle.title = "显示/隐藏译文面板";
-    this.#toggle.textContent = "译";
+    this.#toggle.title = t("togglePanel");
+    this.#toggle.setAttribute("aria-label", t("togglePanel"));
+    this.#toggle.append(panelIcon());
     this.#toggle.addEventListener("click", () => this.setOpen(!this.#state.open));
     document.querySelector("#toolbarViewerRight")?.prepend(this.#toggle);
 
@@ -198,7 +194,7 @@ export class TranslationPanel {
   }
 
   setPageLabel(pageNumber: number): void {
-    this.#pageLabel.textContent = `第 ${pageNumber} 页`;
+    this.#pageLabel.textContent = t("page", pageNumber);
   }
 
   sentenceElement(id: string): HTMLElement | null {
@@ -314,7 +310,7 @@ export class TranslationPanel {
     this.#content.querySelector(".bilingualEmpty")?.remove();
     const section = element("section", "bilingualPage");
     section.dataset["page"] = String(page.page);
-    section.append(element("div", "bilingualPageDivider", `第 ${page.page} 页`));
+    section.append(element("div", "bilingualPageDivider", t("page", page.page)));
 
     let figure: HTMLElement | null = null;
     let code: HTMLElement | null = null;
@@ -322,7 +318,7 @@ export class TranslationPanel {
       if (block.role === "figure") {
         // Consecutive diagram labels collapse into one placeholder.
         if (figure === null) {
-          figure = element("div", "bilingualFigure", "〔图表文字〕");
+          figure = element("div", "bilingualFigure", t("figureText"));
           section.append(figure);
         }
         figure.dataset["blocks"] = `${figure.dataset["blocks"] ?? ""} ${block.id}`.trim();
@@ -397,7 +393,40 @@ function renderSentence(
   // Sentences are separated by a space, except in Chinese and Japanese.
   span.textContent =
     state.status === "done" ? `${state.translation}${spaced ? " " : ""}` : `${sentence.text} `;
-  span.title = state.status === "error" ? `翻译失败，点击重试：${state.message}` : "";
+  span.title = state.status === "error" ? t("translationFailed", state.message) : "";
+}
+
+/** Toolbar icon: a split view with the right-hand panel highlighted. */
+function panelIcon(): SVGSVGElement {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 16 16");
+  svg.setAttribute("aria-hidden", "true");
+  svg.classList.add("bilingualToggleIcon");
+  const frame = document.createElementNS(ns, "rect");
+  for (const [name, value] of Object.entries({
+    x: "1.5",
+    y: "2.5",
+    width: "13",
+    height: "11",
+    rx: "1.5",
+  })) {
+    frame.setAttribute(name, value);
+  }
+  frame.classList.add("frame");
+  const side = document.createElementNS(ns, "rect");
+  for (const [name, value] of Object.entries({
+    x: "9",
+    y: "3",
+    width: "5",
+    height: "10",
+    rx: "1",
+  })) {
+    side.setAttribute(name, value);
+  }
+  side.classList.add("side");
+  svg.append(frame, side);
+  return svg;
 }
 
 function element<K extends keyof HTMLElementTagNameMap>(

@@ -10,6 +10,7 @@ import {
   env,
   EventEmitter,
   type ExtensionContext,
+  l10n,
   type LogOutputChannel,
   window,
   workspace,
@@ -19,6 +20,7 @@ import type { TranslateRange } from "../messages";
 import { TranslationCache } from "./cache";
 import { OpenAICompatibleClient } from "./client";
 import { readTranslationConfig, type TranslationConfig } from "./config";
+import { ERROR_MESSAGES } from "./errors";
 import type { SourceSentence } from "./prompt";
 import {
   type TranslateOptions,
@@ -102,7 +104,11 @@ export class TranslationService implements Disposable {
     if (translator === undefined) {
       return {
         results: [],
-        failures: sentences.map(({ id }) => ({ id, message: "未设置 API Key" })),
+        failures: sentences.map(({ id }) => ({
+          id,
+          message: ERROR_MESSAGES.noApiKey,
+          code: "noApiKey" as const,
+        })),
       };
     }
     const result = await translator.translate(sentences, options);
@@ -112,8 +118,11 @@ export class TranslationService implements Disposable {
 
   async setApiKey(): Promise<void> {
     const key = await window.showInputBox({
-      title: "ParaRead: 设置 API Key",
-      prompt: `用于 ${this.#config.baseUrl} 的 API Key，保存在 VS Code 的安全存储中`,
+      title: l10n.t("ParaRead: Set API Key"),
+      prompt: l10n.t(
+        "API key for {0}. It is kept in VS Code's secret storage.",
+        this.#config.baseUrl,
+      ),
       placeHolder: "sk-...",
       password: true,
       ignoreFocusOut: true,
@@ -123,26 +132,27 @@ export class TranslationService implements Disposable {
     }
     if (key.trim() === "") {
       await this.#context.secrets.delete(SECRET_KEY);
-      void window.showInformationMessage("已删除 API Key。");
+      void window.showInformationMessage(l10n.t("The API key was removed."));
       return;
     }
     await this.#context.secrets.store(SECRET_KEY, key.trim());
     this.#missingKeyNotified = false;
-    void window.showInformationMessage("API Key 已保存。");
+    void window.showInformationMessage(l10n.t("The API key was saved."));
   }
 
   async clearCache(): Promise<void> {
+    const clear = l10n.t("Clear");
     const confirm = await window.showWarningMessage(
-      "清除所有已缓存的译文？之后再次阅读需要重新调用翻译接口。",
+      l10n.t("Clear all cached translations? Papers will need to be translated again."),
       { modal: true },
-      "清除",
+      clear,
     );
-    if (confirm !== "清除") {
+    if (confirm !== clear) {
       return;
     }
     await this.#cache.clear();
-    this.#log.info(`已清除翻译缓存：${this.#cache.dir}`);
-    void window.showInformationMessage("翻译缓存已清除。");
+    this.#log.info(`Cleared the translation cache: ${this.#cache.dir}`);
+    void window.showInformationMessage(l10n.t("The translation cache was cleared."));
   }
 
   dispose(): void {
@@ -182,7 +192,7 @@ export class TranslationService implements Disposable {
       temperature: config.temperature,
       timeoutMs: config.requestTimeoutMs,
       extraBody: config.extraBody,
-      onRetry: (attempt, error) => this.#log.warn(`第 ${attempt} 次重试：${error.message}`),
+      onRetry: (attempt, error) => this.#log.warn(`Retry ${attempt}: ${error.message}`),
     });
     this.#translator = new Translator(
       client,
@@ -196,7 +206,7 @@ export class TranslationService implements Disposable {
       (line) => this.#log.info(line),
     );
     this.#log.info(
-      `翻译服务：${config.baseUrl}，模型 ${config.model}，目标语言 ${config.targetLanguage}，缓存目录 ${this.#cache.dir}`,
+      `Translation API ${config.baseUrl}, model ${config.model}, target language ${config.targetLanguage}, cache ${this.#cache.dir}`,
     );
     return this.#translator;
   }
@@ -207,7 +217,10 @@ export class TranslationService implements Disposable {
     }
     this.#missingKeyNotified = true;
     void window
-      .showWarningMessage("还没有设置翻译接口的 API Key。", "设置 API Key")
+      .showWarningMessage(
+        l10n.t("The API key of the translation service is not set yet."),
+        l10n.t("Set API Key"),
+      )
       .then((choice) => {
         if (choice !== undefined) {
           void this.setApiKey();

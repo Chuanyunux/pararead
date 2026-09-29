@@ -24,6 +24,7 @@ import { DEFAULT_TARGET_LANGUAGE } from "../languages";
 import type { HostToWebview, TranslateRange, WebviewToHost } from "../messages";
 import { Connector } from "./connector";
 import { HighlightOverlay, scrollToSentence } from "./highlight-overlay";
+import { setStrings } from "./i18n";
 import { TranslationPanel } from "./panel";
 import { installPointerSelect } from "./pointer-select";
 import { SaveBridge } from "./save-bridge";
@@ -54,6 +55,7 @@ function loadConfig(): Record<string, unknown> & { url: string } {
 }
 
 const config = loadConfig();
+setStrings(config["strings"]);
 
 const options = window.PDFViewerApplicationOptions;
 options.set("defaultUrl", "");

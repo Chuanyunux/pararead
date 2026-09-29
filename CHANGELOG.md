@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-09-29
+
+### Added
+
+- The interface follows the VS Code display language: English by default, and
+  Chinese for a Chinese VS Code. This covers commands, settings, dialogs,
+  notifications, error messages and the translation panel.
+
+### Changed
+
+- The toolbar button of the translation panel is now an icon.
+- The output channel log is in English.
+
 ## [0.2.0] - 2026-09-29
 
 ### Added

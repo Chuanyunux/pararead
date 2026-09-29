@@ -1,5 +1,6 @@
 /** Minimal OpenAI-compatible chat completion client with timeout and retries. */
 
+import { type ErrorCode, type MessageArg, TranslationError } from "./errors";
 import type { ChatMessage } from "./prompt";
 
 export interface Usage {
@@ -21,19 +22,20 @@ export interface ChatClient {
   ): Promise<Completion>;
 }
 
-export class ApiError extends Error {
+export class ApiError extends TranslationError {
   readonly status: number | undefined;
   readonly retryable: boolean;
   /** Server-requested delay (`Retry-After`) before the next attempt. */
   readonly retryAfterMs: number | undefined;
 
   constructor(
-    message: string,
+    code: ErrorCode,
+    args: readonly MessageArg[],
     status: number | undefined,
     retryable: boolean,
     retryAfterMs?: number,
   ) {
-    super(message);
+    super(code, args);
     this.name = "ApiError";
     this.status = status;
     this.retryable = retryable;
@@ -58,13 +60,13 @@ export interface ClientOptions {
 
 const RETRYABLE_STATUS = new Set([408, 409, 429, 500, 502, 503, 504]);
 
-/** User-facing explanations for errors that retrying cannot fix. */
-const STATUS_MESSAGES: Record<number, string> = {
-  400: "请求格式错误（400），请检查 model 与 extraBody 设置",
-  401: "API Key 无效（401），请重新设置 API Key",
-  402: "账户余额不足（402），请充值后重试",
-  404: "接口地址或模型不存在（404），请检查 baseUrl 与 model 设置",
-  422: "请求参数无效（422），请检查 model 与 extraBody 设置",
+/** Specific explanations for errors that retrying cannot fix. */
+const STATUS_CODES: Record<number, ErrorCode> = {
+  400: "badRequest",
+  401: "unauthorized",
+  402: "insufficientBalance",
+  404: "notFound",
+  422: "invalidParams",
 };
 
 export class OpenAICompatibleClient implements ChatClient {
@@ -133,18 +135,18 @@ export class OpenAICompatibleClient implements ChatClient {
       if (signal?.aborted) {
         throw error;
       }
-      const message = timeout.aborted
-        ? `请求超时（${Math.round(timeoutMs / 1000)} 秒）`
-        : `网络错误：${String(error)}`;
-      throw new ApiError(message, undefined, true);
+      throw timeout.aborted
+        ? new ApiError("timeout", [Math.round(timeoutMs / 1000)], undefined, true)
+        : new ApiError("network", [String(error)], undefined, true);
     }
 
     if (!response.ok) {
       const detail = await response.text().catch(() => "");
       const retryAfter = Number(response.headers.get("retry-after"));
+      const code = STATUS_CODES[response.status];
       throw new ApiError(
-        STATUS_MESSAGES[response.status] ??
-          `接口返回错误 ${response.status}：${detail.slice(0, 200)}`,
+        code ?? "http",
+        code === undefined ? [response.status, detail.slice(0, 200)] : [],
         response.status,
         RETRYABLE_STATUS.has(response.status),
         Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 60) * 1000 : undefined,

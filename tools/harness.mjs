@@ -2,6 +2,7 @@
 // stub VS Code API that records host messages in `window.__hostMessages`.
 //
 // Usage: node tools/harness.mjs [port]   then open http://localhost:<port>/?pdf=papers/<file>.pdf
+// Add &lang=zh-cn to use the Chinese webview texts from l10n/bundle.l10n.zh-cn.json.
 
 import { createReadStream, readFileSync, statSync } from "node:fs";
 import { createServer } from "node:http";
@@ -24,8 +25,26 @@ const MIME = {
   ".ftl": "text/plain; charset=utf-8",
 };
 
+/** Webview texts as the extension host would pass them for a display language. */
+function webviewStrings(lang) {
+  const source = readFileSync(join(root, "src/webview-strings.ts"), "utf8");
+  const bundlePath = join(root, `l10n/bundle.l10n.${lang}.json`);
+  let bundle = {};
+  try {
+    bundle = JSON.parse(readFileSync(bundlePath, "utf8"));
+  } catch {
+    // English: no bundle.
+  }
+  const strings = {};
+  for (const match of source.matchAll(/^\s+(\w+):\s*\n?\s*"((?:\\.|[^"\\])*)",?$/gmu)) {
+    const english = JSON.parse(`"${match[2]}"`);
+    strings[match[1]] = bundle[english] ?? english;
+  }
+  return strings;
+}
+
 // Same rewriting as src/pdf-viewer-provider.ts, minus the CSP.
-function harnessHtml(pdf) {
+function harnessHtml(pdf, lang = "en") {
   const origin = `http://localhost:${port}`;
   const pdfjs = `${origin}/assets/pdf.js`;
   const config = {
@@ -41,6 +60,7 @@ function harnessHtml(pdf) {
     wasmUrl: `${pdfjs}/web/wasm/`,
     imageResourcesPath: `${pdfjs}/web/images/`,
     debug: true,
+    strings: webviewStrings(lang),
   };
   const attr = JSON.stringify(config).replaceAll('"', "&quot;");
   return readFileSync(join(root, "assets/pdf.js/web/viewer.html"), "utf8")
@@ -65,7 +85,7 @@ function harnessHtml(pdf) {
           const { requestId, sentences } = message;
           const failing = sentences.filter((s) => window.__failIds?.includes(s.id));
           const ok = sentences.filter((s) => !failing.includes(s));
-          reply({ type: "translations", requestId, items: ok.map((s) => ({ id: s.id, zh: "【译】" + s.text })) });
+          reply({ type: "translations", requestId, items: ok.map((s) => ({ id: s.id, translation: "【译】" + s.text })) });
           reply({ type: "translationDone", requestId, failures: failing.map((s) => ({ id: s.id, message: "模拟失败" })) });
         }, 50);
       }
@@ -93,7 +113,7 @@ createServer((req, res) => {
     const pdf =
       url.searchParams.get("pdf") ?? "assets/pdf.js/web/compressed.tracemonkey-pldi-09.pdf";
     res.writeHead(200, { "content-type": MIME[".html"] });
-    res.end(harnessHtml(pdf));
+    res.end(harnessHtml(pdf, url.searchParams.get("lang") ?? "en"));
     return;
   }
   const file = normalize(join(root, decodeURIComponent(url.pathname)));

@@ -294,17 +294,36 @@ body.bilingualResizing #outerContainer {
   stroke: none;
 }
 
-/* Toolbar toggle: a text button, without pdf.js' icon mask. */
+/* Toolbar toggle: an inline SVG icon instead of pdf.js' icon mask. */
 .toolbarButton.bilingualToggle {
-  width: auto;
-  min-width: 28px;
-  padding-inline: 6px;
-  font-weight: 600;
-  color: var(--main-color);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--toolbar-icon-bg-color, var(--main-color));
 }
 
 .toolbarButton.bilingualToggle::before {
   display: none;
+}
+
+.bilingualToggleIcon {
+  width: 16px;
+  height: 16px;
+}
+
+.bilingualToggleIcon .frame {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+}
+
+.bilingualToggleIcon .side {
+  fill: currentColor;
+  opacity: 0.25;
+}
+
+.bilingualToggle[aria-pressed="true"] .bilingualToggleIcon .side {
+  opacity: 0.85;
 }
 
 /* Sentence highlight drawn over the page; never part of the PDF. */

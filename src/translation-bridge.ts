@@ -3,10 +3,13 @@
  * translation jobs with a cancellable progress notification.
  */
 
-import { ProgressLocation, type Webview, window } from "vscode";
+import { l10n, ProgressLocation, type Webview, window } from "vscode";
 
-import type { HostToWebview, TranslatedItem, WebviewToHost } from "./messages";
+import { localizeError } from "./l10n";
+import type { FailedItem, HostToWebview, TranslatedItem, WebviewToHost } from "./messages";
+import { ERROR_MESSAGES } from "./translation/errors";
 import type { TranslationService } from "./translation/service";
+import type { TranslationFailure } from "./translation/translator";
 
 /** Results are sent to the webview in small bursts rather than one by one. */
 const FLUSH_DELAY_MS = 30;
@@ -60,18 +63,25 @@ export class TranslationBridge {
   }
 
   async translateDocument(webview: Webview): Promise<void> {
+    const start = l10n.t("Translate");
     const confirm = await window.showWarningMessage(
-      "翻译整篇论文？所有未缓存的句子都会发送到翻译接口，可能产生费用。翻译过程中可以随时取消。",
+      l10n.t(
+        "Translate the whole paper? All sentences that are not cached are sent to the translation API, which may incur costs. You can cancel at any time.",
+      ),
       { modal: true },
-      "开始翻译",
+      start,
     );
-    if (confirm !== "开始翻译") {
+    if (confirm !== start) {
       return;
     }
 
     const jobId = this.#nextJobId++;
     await window.withProgress(
-      { location: ProgressLocation.Notification, title: "翻译整篇论文", cancellable: true },
+      {
+        location: ProgressLocation.Notification,
+        title: l10n.t("Translating the paper"),
+        cancellable: true,
+      },
       (progress, token) =>
         new Promise<void>((resolve) => {
           let reported = 0;
@@ -80,7 +90,10 @@ export class TranslationBridge {
             abort: new AbortController(),
             onProgress: (done, total) => {
               const percent = total === 0 ? 100 : (done / total) * 100;
-              progress.report({ message: `${done} / ${total} 页`, increment: percent - reported });
+              progress.report({
+                message: l10n.t("{0} / {1} pages", done, total),
+                increment: percent - reported,
+              });
               reported = percent;
             },
             finish: () => {
@@ -92,7 +105,7 @@ export class TranslationBridge {
           token.onCancellationRequested(() => {
             job.abort.abort();
             this.#post(webview, { type: "cancelTranslateAll", jobId });
-            this.#service.log.info("已取消整篇翻译");
+            this.#service.log.info("Whole-paper translation cancelled");
             job.finish();
           });
           this.#post(webview, { type: "translateAll", jobId });
@@ -108,7 +121,7 @@ export class TranslationBridge {
       this.#post(webview, {
         type: "translationDone",
         requestId,
-        failures: sentences.map(({ id }) => ({ id, message: "已取消" })),
+        failures: sentences.map(({ id }) => ({ id, message: l10n.t(ERROR_MESSAGES.cancelled) })),
       });
       return;
     }
@@ -136,11 +149,15 @@ export class TranslationBridge {
         },
       );
       flush();
-      this.#post(webview, { type: "translationDone", requestId, failures });
+      this.#post(webview, {
+        type: "translationDone",
+        requestId,
+        failures: failures.map(localizeFailure),
+      });
     } catch (error) {
       flush();
       const text = error instanceof Error ? error.message : String(error);
-      this.#service.log.error(`翻译请求失败：${text}`);
+      this.#service.log.error(`Translation request failed: ${text}`);
       this.#post(webview, {
         type: "translationDone",
         requestId,
@@ -161,4 +178,8 @@ export class TranslationBridge {
   #post(webview: Webview, message: HostToWebview) {
     void webview.postMessage(message);
   }
+}
+
+function localizeFailure({ id, message, code, args }: TranslationFailure): FailedItem {
+  return { id, message: localizeError(code, args, message) };
 }

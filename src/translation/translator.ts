@@ -7,6 +7,7 @@
 import { isAlreadyInLanguage } from "../languages";
 import { cacheKey, type TranslationCache } from "./cache";
 import { ApiError, type ChatClient } from "./client";
+import { type ErrorCode, errorDetails, type MessageArg, TranslationError } from "./errors";
 import { parseTranslations } from "./parse";
 import {
   buildMessages,
@@ -24,7 +25,11 @@ export interface TranslationResult {
 
 export interface TranslationFailure {
   id: string;
+  /** English message. */
   message: string;
+  /** For localized display, when the error is a known one. */
+  code?: ErrorCode;
+  args?: readonly MessageArg[];
 }
 
 export interface TranslatorOptions {
@@ -156,7 +161,7 @@ export class Translator {
         },
         (error: unknown) => {
           for (const id of ids) {
-            failures.push({ id, message: error instanceof Error ? error.message : String(error) });
+            failures.push({ id, ...errorDetails(error) });
           }
         },
       );
@@ -196,7 +201,7 @@ export class Translator {
 
     this.stats.cacheHits += cacheHits;
     if (pending.length > 0 || cacheHits > 0) {
-      this.#log(`缓存命中 ${cacheHits} 句，需翻译 ${pending.length} 句`);
+      this.#log(`Cache: ${cacheHits} hit, ${pending.length} to translate`);
     }
     await Promise.all(this.#batches(pending).map((batch) => this.#runBatch(batch, signal)));
     await Promise.all(waits);
@@ -282,7 +287,9 @@ export class Translator {
         return;
       }
       // A transient failure of a multi-sentence request: retry one by one.
-      this.#log(`批量请求失败（${String(error)}），改为逐句重试 ${batch.length} 句`);
+      this.#log(
+        `Batch request failed (${String(error)}); retrying ${batch.length} sentences one by one`,
+      );
       await Promise.all(batch.map((entry) => this.#runBatch([entry], signal)));
       return;
     }
@@ -303,17 +310,17 @@ export class Translator {
       return;
     }
     if (batch.length === 1) {
-      this.#fail(missing, new Error("模型没有返回有效的译文"));
+      this.#fail(missing, new TranslationError("noTranslation"));
       return;
     }
-    this.#log(`返回结果缺少 ${missing.length} 句，逐句重试`);
+    this.#log(`Reply is missing ${missing.length} sentences; retrying them one by one`);
     await Promise.all(missing.map((entry) => this.#runBatch([entry], signal)));
   }
 
   #fail(entries: Pending[], error: unknown): void {
     const reason = error instanceof Error ? error : new Error(String(error));
     this.stats.failed += entries.length;
-    this.#log(`翻译失败 ${entries.length} 句：${reason.message}`);
+    this.#log(`Failed to translate ${entries.length} sentences: ${reason.message}`);
     for (const entry of entries) {
       entry.reject(reason);
     }
@@ -331,7 +338,7 @@ export class Translator {
     this.stats.completionTokens += usage.completionTokens;
     this.stats.promptCacheHitTokens += usage.promptCacheHitTokens ?? 0;
     this.#log(
-      `API 调用：输入 ${usage.promptTokens} tokens（上下文缓存命中 ${usage.promptCacheHitTokens ?? 0}），输出 ${usage.completionTokens} tokens`,
+      `API call: ${usage.promptTokens} input tokens (${usage.promptCacheHitTokens ?? 0} from context cache), ${usage.completionTokens} output tokens`,
     );
   }
 }

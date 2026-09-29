@@ -40,6 +40,7 @@ import {
 
 import rawViewerHtml from "../assets/pdf.js/web/viewer.html";
 import { disposeAll } from "./disposable";
+import { webviewStrings } from "./l10n";
 import {
   type HostToWebview,
   isOpenLinkMessage,
@@ -365,6 +366,7 @@ export class PDFViewerProvider implements CustomEditorProvider<PDFDocument> {
       translateRange: this.translation.translateRange,
       targetLanguage: this.translation.targetLanguage,
       selectOnHover: config.get<boolean>("selectOnHover", true),
+      strings: webviewStrings(),
     };
 
     return viewerHtml

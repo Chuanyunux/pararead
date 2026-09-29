@@ -17,15 +17,14 @@
  * translation service and commands.
  */
 
-import { commands, type ExtensionContext, window } from "vscode";
+import { commands, type ExtensionContext, l10n, window } from "vscode";
 
 import { PDFViewerProvider } from "./pdf-viewer-provider";
 import { TranslationBridge } from "./translation-bridge";
 import { SET_API_KEY_COMMAND, TranslationService } from "./translation/service";
 
-const NO_VIEWER = "请先在 ParaRead 中打开一个 PDF。";
-
 export function activate(context: ExtensionContext): void {
+  const noViewer = () => window.showInformationMessage(l10n.t("Open a PDF in ParaRead first."));
   const translation = new TranslationService(context);
   const bridge = new TranslationBridge(translation);
   const provider = new PDFViewerProvider(context, translation, bridge);
@@ -37,13 +36,13 @@ export function activate(context: ExtensionContext): void {
     commands.registerCommand("pararead.clearCache", () => translation.clearCache()),
     commands.registerCommand("pararead.translatePage", () => {
       if (!provider.postToActive({ type: "translateCurrentPage" })) {
-        void window.showInformationMessage(NO_VIEWER);
+        void noViewer();
       }
     }),
     commands.registerCommand("pararead.translateDocument", () => {
       const webview = provider.activeWebview();
       if (webview === undefined) {
-        void window.showInformationMessage(NO_VIEWER);
+        void noViewer();
         return;
       }
       return bridge.translateDocument(webview);

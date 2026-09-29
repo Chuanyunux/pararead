@@ -24,7 +24,7 @@
 
 - 🎯 **逐句对照**：鼠标停在句子上，原句加框，一条箭头指向对应的译文，两者保持在同一水平线；滚动论文时译文跟着滚。
 - 📄 **保留原文格式**：译文面板按标题、段落、列表、图表说明、脚注、代码排版，像一篇正式文档，而不是一句一行的列表。
-- 🌐 **译成 11 种语言**：简体中文、繁體中文、English、日本語、한국어、Français、Deutsch、Español、Português、Русский、Italiano，默认跟随 VS Code 界面语言。
+- 🌐 **译成 11 种语言**：简体中文、繁體中文、English、日本語、한국어、Français、Deutsch、Español、Português、Русский、Italiano，默认跟随 VS Code 界面语言。插件界面支持中文和英文，同样跟随 VS Code。
 - ✍️ **仍然是完整的 PDF 阅读器**：高亮、批注、手绘都能用，`Ctrl+S` 直接保存回 PDF。
 
 ## 三步上手
@@ -44,7 +44,7 @@
 | 单击空白处 / `Esc`     | 取消选中                                       |
 | 在译文上悬停 / 单击    | 反向定位原句（单击会滚动到原句）               |
 | 面板顶部「原文」       | 在每段译文下显示英文原文                       |
-| 工具栏「译」按钮       | 显示 / 隐藏译文面板；分隔条可拖动调整宽度      |
+| 工具栏面板图标         | 显示 / 隐藏译文面板；分隔条可拖动调整宽度      |
 | **ParaRead: 翻译整篇** | 确认后翻译全文，显示进度，可随时取消           |
 
 ## 与同类工具的区别
@@ -128,7 +128,7 @@ pnpm run check      # 类型检查、lint、格式检查
 - ✍️ **Still a full PDF reader**: PDF.js highlight, comment and drawing tools; `Ctrl+S` saves annotations into the PDF.
 - 🔌 **Your model**: DeepSeek by default, any OpenAI-compatible API, or a local Ollama (fully offline). Translations are cached per sentence, so reopening a paper costs nothing.
 
-**Install**: download the `.vsix` from [Releases](https://github.com/Chuanyunux/pararead/releases), run **Extensions: Install from VSIX...** (VS Code ≥ 1.95), then **ParaRead: 设置 API Key** (set API key) and open a PDF.
+**Install**: download the `.vsix` from [Releases](https://github.com/Chuanyunux/pararead/releases), run **Extensions: Install from VSIX...** (VS Code ≥ 1.95), then **ParaRead: Set API Key** and open a PDF. The interface is in English or Chinese, following VS Code.
 
 **Privacy**: only the sentences to translate are sent to the configured API. The API key lives in VS Code's secret storage and never reaches the webview, which has no network access. PDFs are only modified when you save annotations.
 
