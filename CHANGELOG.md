@@ -4,6 +4,26 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-09-29
+
+### Added
+
+- The first time a paper is opened, ParaRead says which language it translates
+  into (by default the VS Code display language) and offers to keep or change
+  it. Either answer is saved; an unanswered question comes back at most three
+  times.
+- A language button in the translation panel header shows the translation
+  language and changes it.
+- The language list suggests the system language and the VS Code display
+  language first.
+- "Don't Show Again" on the hint about papers already in the translation
+  language.
+
+### Changed
+
+- The "Original" button is now a "Show original" checkbox, so its purpose and
+  state are visible.
+
 ## [0.4.2] - 2026-09-29
 
 ### Added

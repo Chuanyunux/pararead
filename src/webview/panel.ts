@@ -38,6 +38,8 @@ export interface PanelOptions {
   onActivate: (sentence: Sentence) => void;
   /** Language of the translations (BCP 47 code). */
   targetLanguage: string;
+  /** The language button was clicked. */
+  onChooseLanguage: () => void;
 }
 
 export class TranslationPanel {
@@ -50,6 +52,7 @@ export class TranslationPanel {
   readonly #pageLabel: HTMLElement;
   readonly #toggle: HTMLButtonElement;
   readonly #sourceToggle: HTMLButtonElement;
+  readonly #languageButton: HTMLButtonElement;
   /** Block id → element (figure labels share one placeholder). */
   readonly #blockElements = new Map<string, HTMLElement>();
   #state: PanelState;
@@ -66,6 +69,7 @@ export class TranslationPanel {
     selectionEnabled,
     onActivate,
     targetLanguage,
+    onChooseLanguage,
   }: PanelOptions) {
     this.#store = store;
     this.#translations = translations;
@@ -81,16 +85,24 @@ export class TranslationPanel {
     const header = element("header", "bilingualHeader");
     header.append(element("span", "bilingualTitle", t("panelTitle")));
     this.#pageLabel = element("span", "bilingualPageLabel");
-    this.#sourceToggle = element("button", "bilingualHeaderButton", t("sourceButton"));
+    this.#languageButton = element("button", "bilingualHeaderButton bilingualLanguageButton");
+    this.#languageButton.type = "button";
+    this.#languageButton.addEventListener("click", onChooseLanguage);
+    // A checkbox-like switch: its state is visible, not only its name.
+    this.#sourceToggle = element("button", "bilingualHeaderButton bilingualSourceToggle");
     this.#sourceToggle.type = "button";
     this.#sourceToggle.title = t("sourceButtonTitle");
+    this.#sourceToggle.append(
+      element("span", "bilingualCheck"),
+      element("span", "bilingualSourceLabel", t("sourceButton")),
+    );
     this.#sourceToggle.addEventListener("click", () => {
       this.#state = { ...this.#state, showSource: !this.#state.showSource };
       this.#apply();
       this.#save();
     });
     const tools = element("span", "bilingualHeaderTools");
-    tools.append(this.#pageLabel, this.#sourceToggle);
+    tools.append(this.#pageLabel, this.#languageButton, this.#sourceToggle);
     header.append(tools);
 
     this.#body = element("div", "bilingualBody");
@@ -182,7 +194,11 @@ export class TranslationPanel {
   #applyLanguage(code: string): void {
     // Fonts, line breaking and (for Chinese/Japanese) paragraph indentation.
     this.#content.lang = code;
-    this.#spaced = languageInfo(code)?.spaced ?? true;
+    const info = languageInfo(code);
+    this.#spaced = info?.spaced ?? true;
+    const name = info?.nativeName ?? code;
+    this.#languageButton.textContent = `${name} ▾`;
+    this.#languageButton.title = t("languageButtonTitle", name);
   }
 
   /** The scrolling element of the panel. */

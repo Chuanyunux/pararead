@@ -55,7 +55,9 @@ export type WebviewToHost =
   /** Translate sentences; part of whole-document job `jobId` if set. */
   | { type: "translate"; requestId: number; sentences: SentenceToTranslate[]; jobId?: number }
   | { type: "translateAllProgress"; jobId: number; done: number; total: number }
-  | { type: "translateAllDone"; jobId: number };
+  | { type: "translateAllDone"; jobId: number }
+  /** The panel's language button was clicked. */
+  | { type: "chooseTargetLanguage" };
 
 /** Link clicks sent by the patched pdf.js link service (see patches/pdf.js.patch). */
 export interface OpenLinkMessage {
@@ -78,6 +80,7 @@ export function isWebviewToHost(message: unknown): message is WebviewToHost {
   switch (m["type"]) {
     case "dirty":
     case "requestSave":
+    case "chooseTargetLanguage":
       return true;
     case "data":
       return typeof m["requestId"] === "number" && m["data"] instanceof Uint8Array;

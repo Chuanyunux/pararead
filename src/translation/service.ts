@@ -17,7 +17,7 @@ import {
   workspace,
 } from "vscode";
 
-import { LANGUAGES, languageInfo } from "../languages";
+import { LANGUAGES, languageInfo, resolveTargetLanguage } from "../languages";
 import type { TranslateRange } from "../messages";
 import { TranslationCache } from "./cache";
 import { OpenAICompatibleClient } from "./client";
@@ -40,6 +40,35 @@ export const CHOOSE_TARGET_LANGUAGE_COMMAND = "pararead.chooseTargetLanguage";
  * target language probably matches the paper's language.
  */
 const PASS_THROUGH_SHARE = 0.5;
+
+/** globalState keys. */
+const CONFIRMATIONS_KEY = "pararead.targetLanguageConfirmations";
+const PASS_THROUGH_MUTED_KEY = "pararead.passThroughHintMuted";
+/** How often an unanswered translation language question is asked. */
+const MAX_CONFIRMATIONS = 3;
+
+/** Whether the user never set `pararead.targetLanguage` (not even to "auto"). */
+function targetLanguageUnset(): boolean {
+  const inspected = workspace.getConfiguration("pararead").inspect("targetLanguage");
+  return (
+    inspected?.globalValue === undefined &&
+    inspected?.workspaceValue === undefined &&
+    inspected?.workspaceFolderValue === undefined
+  );
+}
+
+function saveTargetLanguage(code: string): Thenable<void> {
+  return workspace
+    .getConfiguration("pararead")
+    .update("targetLanguage", code, ConfigurationTarget.Global);
+}
+
+/** Supported language of a locale such as "zh-CN" or "de-AT", if any. */
+function supportedLanguageOf(locale: string): string | undefined {
+  const code = resolveTargetLanguage("auto", locale);
+  const matches = locale.toLowerCase().startsWith(code.slice(0, 2).toLowerCase());
+  return matches ? code : undefined;
+}
 
 function readConfig(): TranslationConfig {
   const config = workspace.getConfiguration("pararead");
@@ -65,6 +94,7 @@ export class TranslationService implements Disposable {
   #translator: Translator | undefined;
   #missingKeyNotified = false;
   #passThroughNotified = false;
+  #confirmationShown = false;
 
   readonly #onDidChangeSettings = new EventEmitter<void>();
   /** Fired when `pararead.*` settings change. */
@@ -135,16 +165,69 @@ export class TranslationService implements Disposable {
     return result;
   }
 
+  /**
+   * On opening a paper, while the translation language was never set: says
+   * which language translations are in (derived from the VS Code display
+   * language) and offers to change it. Either answer saves the setting; a
+   * dismissed message comes back on a later paper, a few times at most.
+   */
+  async confirmTargetLanguage(): Promise<void> {
+    const { globalState } = this.#context;
+    const asked = globalState.get<number>(CONFIRMATIONS_KEY, 0);
+    if (this.#confirmationShown || asked >= MAX_CONFIRMATIONS || !targetLanguageUnset()) {
+      return;
+    }
+    this.#confirmationShown = true;
+    await globalState.update(CONFIRMATIONS_KEY, asked + 1);
+    const code = this.#config.targetLanguage;
+    const name = languageInfo(code)?.nativeName ?? code;
+    const keep = l10n.t("Keep {0}", name);
+    const choose = l10n.t("Choose Language");
+    const choice = await window.showInformationMessage(
+      l10n.t("ParaRead translates papers into {0}, the VS Code display language.", name),
+      keep,
+      choose,
+    );
+    if (choice === keep) {
+      await saveTargetLanguage(code);
+    } else if (choice === choose) {
+      await this.chooseTargetLanguage();
+    }
+  }
+
   /** Quick pick for `pararead.targetLanguage`, saved in the user settings. */
   async chooseTargetLanguage(): Promise<void> {
     const current = this.#config.targetLanguageIsAuto ? "auto" : this.#config.targetLanguage;
+    // Likely choices first: the system language, then the VS Code display language.
+    const suggested = new Map<string, string>();
+    const system = supportedLanguageOf(Intl.DateTimeFormat().resolvedOptions().locale);
+    if (system !== undefined) {
+      suggested.set(system, l10n.t("System language"));
+    }
+    const display = supportedLanguageOf(env.language);
+    if (display !== undefined && !suggested.has(display)) {
+      suggested.set(display, l10n.t("VS Code display language"));
+    }
+    const languages = [
+      ...LANGUAGES.filter((l) => suggested.has(l.code)).toSorted(
+        (a, b) => [...suggested.keys()].indexOf(a.code) - [...suggested.keys()].indexOf(b.code),
+      ),
+      ...LANGUAGES.filter((l) => !suggested.has(l.code)),
+    ];
     const items = [
+      ...languages.map((l) => {
+        const hint = suggested.get(l.code);
+        return {
+          label: l.nativeName,
+          description: hint === undefined ? l.englishName : `${l.englishName} · ${hint}`,
+          code: l.code,
+        };
+      }),
       {
         label: l10n.t("Auto"),
         description: l10n.t("Follow the VS Code display language"),
         code: "auto",
       },
-      ...LANGUAGES.map((l) => ({ label: l.nativeName, description: l.englishName, code: l.code })),
     ].map((item) => (item.code === current ? { ...item, label: `$(check) ${item.label}` } : item));
     const choice = await window.showQuickPick(items, {
       title: l10n.t("ParaRead: Translation Language"),
@@ -152,9 +235,7 @@ export class TranslationService implements Disposable {
       matchOnDescription: true,
     });
     if (choice !== undefined) {
-      await workspace
-        .getConfiguration("pararead")
-        .update("targetLanguage", choice.code, ConfigurationTarget.Global);
+      await saveTargetLanguage(choice.code);
     }
   }
 
@@ -268,12 +349,20 @@ export class TranslationService implements Disposable {
    * English paper with an English VS Code): offer to choose another language.
    */
   #notifyPassThrough(): void {
-    if (this.#passThroughNotified || !this.#config.targetLanguageIsAuto) {
+    const { globalState } = this.#context;
+    if (
+      this.#passThroughNotified ||
+      // The language question of this session covers it.
+      this.#confirmationShown ||
+      !this.#config.targetLanguageIsAuto ||
+      globalState.get<boolean>(PASS_THROUGH_MUTED_KEY, false)
+    ) {
       return;
     }
     this.#passThroughNotified = true;
-    const language = languageInfo(this.#config.targetLanguage)?.englishName ?? "";
+    const language = languageInfo(this.#config.targetLanguage)?.nativeName ?? "";
     const choose = l10n.t("Choose Language");
+    const mute = l10n.t("Don't Show Again");
     void window
       .showInformationMessage(
         l10n.t(
@@ -281,10 +370,13 @@ export class TranslationService implements Disposable {
           language,
         ),
         choose,
+        mute,
       )
       .then((choice) => {
         if (choice === choose) {
           void this.chooseTargetLanguage();
+        } else if (choice === mute) {
+          void globalState.update(PASS_THROUGH_MUTED_KEY, true);
         }
       });
   }

@@ -18,6 +18,11 @@
   "ParaRead: Translation Language": "ParaRead: 译文语言",
   "Language to translate papers into": "论文要翻译成的语言",
   "Choose Language": "选择语言",
+  "Don't Show Again": "不再提示",
+  "Keep {0}": "保留{0}",
+  "ParaRead translates papers into {0}, the VS Code display language.": "ParaRead 会把论文译成{0}（VS Code 界面语言）。",
+  "System language": "系统语言",
+  "VS Code display language": "VS Code 界面语言",
   "The paper is already in {0}, the VS Code display language, so it is shown untranslated. Choose the language to translate into?": "论文已经是 VS Code 界面语言（{0}），因此按原文显示。要选择译文语言吗？",
 
   "Invalid request (400). Check the model and extraBody settings.": "请求格式错误（400），请检查 model 与 extraBody 设置。",
@@ -33,8 +38,9 @@
   "The API key is not set.": "未设置 API Key。",
 
   "Translation": "译文",
-  "Original": "原文",
-  "Show the original text under each paragraph": "在每段译文下显示原文",
+  "Show original": "显示原文",
+  "Show the original text under each translated paragraph": "在每段译文下方显示对应的原文",
+  "Translation language: {0}. Click to change it.": "译文语言：{0}，单击可更改",
   "Show or hide the translation panel": "显示/隐藏译文面板",
   "Scroll the PDF to see translations. Rest the pointer on a sentence to compare it; click empty space to clear.": "滚动 PDF 即可看到译文；鼠标停在句子上可对照，单击空白处取消。",
   "Page {0}": "第 {0} 页",

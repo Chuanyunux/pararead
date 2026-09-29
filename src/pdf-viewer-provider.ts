@@ -271,6 +271,8 @@ export class PDFViewerProvider implements CustomEditorProvider<PDFDocument> {
   resolveCustomEditor(document: PDFDocument, webviewPanel: WebviewPanel): void {
     // Add the webview to our internal set of active webviews
     this.webviews.add(document.uri, webviewPanel);
+    // First paper: confirm the translation language, which may come from the UI language.
+    void this.translation.confirmTargetLanguage();
 
     // Setup initial content for the webview
     const resourceRoot = parentDirectory(document.uri);

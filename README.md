@@ -31,7 +31,7 @@
 
 1. 从 [Releases](https://github.com/Chuanyunux/pararead/releases) 下载 `.vsix`，在 VS Code 中运行 **Extensions: Install from VSIX...**。
 2. 命令面板运行 **ParaRead: 设置 API Key**，填入 [DeepSeek](https://platform.deepseek.com/) 的 API Key。
-3. 用 VS Code 打开任意 PDF。正在阅读的页面会自动翻译，把鼠标放到句子上即可对照。
+3. 用 VS Code 打开任意 PDF。第一次打开时会确认译文语言（默认跟随 VS Code 界面语言）；正在阅读的页面会自动翻译，把鼠标放到句子上即可对照。
 
 需要 VS Code 1.95 或更高版本。
 
@@ -43,7 +43,8 @@
 | 单击 / Alt+单击句子    | 选中并立即翻译它所在的段落                     |
 | 单击空白处 / `Esc`     | 取消选中                                       |
 | 在译文上悬停 / 单击    | 反向定位原句（单击会滚动到原句）               |
-| 面板顶部「原文」       | 在每段译文下显示原文                           |
+| 面板顶部「显示原文」   | 勾选后在每段译文下方显示对应的原文             |
+| 面板顶部语言按钮       | 显示当前译文语言，单击可切换                   |
 | 工具栏面板图标         | 显示 / 隐藏译文面板；分隔条可拖动调整宽度      |
 | **ParaRead: 翻译整篇** | 确认后翻译全文，显示进度，可随时取消           |
 
@@ -94,7 +95,7 @@
 
 **支持哪些语言的论文？** 横排的中文、日文、韩文、俄文和英、法、德、西、葡、意文论文。竖排版面和从右向左书写的语言（如阿拉伯语）暂不支持。
 
-**面板里显示的是原文，没有翻译？** 译文语言默认跟随 VS Code 界面语言。英文界面下读英文论文时，句子已经是“译文语言”，所以按原文显示，ParaRead 会弹出提示。运行命令 **ParaRead: Choose Translation Language**（中文界面为“选择译文语言”），或在设置中修改 `pararead.targetLanguage` 即可。
+**面板里显示的是原文，没有翻译？** 译文语言没有设置时跟随 VS Code 界面语言。英文界面下读英文论文，句子已经是“译文语言”，所以按原文显示。单击面板顶部的语言按钮，或运行命令 **ParaRead: Choose Translation Language**（中文界面为“选择译文语言”）即可更改。
 
 **可以只用本地模型吗？** 可以。把 `pararead.baseUrl` 设为本地 Ollama 地址、`pararead.extraBody` 设为 `{}` 即可，无需 API Key。
 
@@ -129,11 +130,11 @@ pnpm run check      # 类型检查、lint、格式检查
 **ParaRead** — hover over a sentence and its translation sits right beside it, at the same height. A sentence-by-sentence bilingual reader for PDF papers in VS Code, translating between 11 languages: Chinese (Simplified and Traditional), English, Japanese, Korean, French, German, Spanish, Portuguese, Russian and Italian. The language of the paper is detected sentence by sentence (`pararead.sourceLanguage`), and Chinese and Japanese papers are split at full-width punctuation. The target language follows the VS Code display language by default (`pararead.targetLanguage`). Vertical text and right-to-left languages are not supported.
 
 - 🎯 **Sentence linking**: hovering a sentence outlines it, draws an arrow to its translation and keeps both level; the translation scrolls with the paper. Click to translate its paragraph right away; click empty space or press `Esc` to clear.
-- 📄 **Layout-preserving translation panel**: headings, paragraphs, lists, captions, footnotes and code, page by page, with an optional view of the original.
+- 📄 **Layout-preserving translation panel**: headings, paragraphs, lists, captions, footnotes and code, page by page, with an optional view of the original. The language button in its header shows and changes the translation language.
 - ✍️ **Still a full PDF reader**: PDF.js highlight, comment and drawing tools; `Ctrl+S` saves annotations into the PDF.
 - 🔌 **Your model**: DeepSeek by default, any OpenAI-compatible API, or a local Ollama (fully offline). Translations are cached per sentence, so reopening a paper costs nothing.
 
-**Install**: download the `.vsix` from [Releases](https://github.com/Chuanyunux/pararead/releases), run **Extensions: Install from VSIX...** (VS Code ≥ 1.95), then **ParaRead: Set API Key** and open a PDF. The interface is in English or Chinese, following VS Code. With an English VS Code, run **ParaRead: Choose Translation Language** first: English papers are otherwise shown untranslated.
+**Install**: download the `.vsix` from [Releases](https://github.com/Chuanyunux/pararead/releases), run **Extensions: Install from VSIX...** (VS Code ≥ 1.95), then **ParaRead: Set API Key** and open a PDF. The interface is in English or Chinese, following VS Code. On the first paper, ParaRead confirms the translation language, which otherwise follows the VS Code display language.
 
 **Privacy**: only the sentences to translate are sent to the configured API. The API key lives in VS Code's secret storage and never reaches the webview, which has no network access. PDFs are only modified when you save annotations.
 

@@ -44,6 +44,9 @@ export class TranslationBridge {
       case "translateAllDone":
         this.#jobs.get(message.jobId)?.finish();
         return true;
+      case "chooseTargetLanguage":
+        void this.#service.chooseTargetLanguage();
+        return true;
       default:
         return false;
     }

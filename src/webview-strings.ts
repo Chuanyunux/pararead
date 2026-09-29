@@ -6,8 +6,9 @@
 
 export const WEBVIEW_STRINGS = {
   panelTitle: "Translation",
-  sourceButton: "Original",
-  sourceButtonTitle: "Show the original text under each paragraph",
+  sourceButton: "Show original",
+  sourceButtonTitle: "Show the original text under each translated paragraph",
+  languageButtonTitle: "Translation language: {0}. Click to change it.",
   togglePanel: "Show or hide the translation panel",
   emptyHint:
     "Scroll the PDF to see translations. Rest the pointer on a sentence to compare it; click empty space to clear.",

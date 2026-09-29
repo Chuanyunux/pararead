@@ -118,6 +118,7 @@ async function start() {
     translations,
     selection,
     targetLanguage,
+    onChooseLanguage: () => post({ type: "chooseTargetLanguage" }),
     vscode,
     hoverEnabled: () => hoverEnabled,
     selectionEnabled: () => !editing(),

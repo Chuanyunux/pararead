@@ -92,8 +92,53 @@ body.bilingualResizing #outerContainer {
   cursor: pointer;
 }
 
-.bilingualHeaderButton[aria-pressed="true"] {
-  background: var(--vscode-button-secondaryBackground, rgb(128 128 128 / 0.25));
+.bilingualHeaderButton:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgb(128 128 128 / 0.2));
+}
+
+.bilingualHeaderButton:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder, #0078d4);
+  outline-offset: 1px;
+}
+
+/* "Show original": a checkbox with its label, so that its state is visible. */
+.bilingualSourceToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.bilingualCheck {
+  position: relative;
+  width: 11px;
+  height: 11px;
+  flex: none;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  opacity: 0.7;
+}
+
+.bilingualSourceToggle[aria-pressed="true"] .bilingualCheck {
+  border-color: var(--bilingual-select);
+  background: var(--bilingual-select);
+  opacity: 1;
+}
+
+.bilingualSourceToggle[aria-pressed="true"] .bilingualCheck::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0;
+  width: 3px;
+  height: 7px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.bilingualLanguageButton {
+  white-space: nowrap;
 }
 
 .bilingualBody {
