@@ -46,9 +46,84 @@ const NO_SPLIT_ABBREVIATIONS = new Set([
   "st",
   "jr",
   "sr",
+  // German
+  "z.b",
+  "bzw",
+  "usw",
+  "vgl",
+  "ggf",
+  "bspw",
+  "d.h",
+  "u.a",
+  "abb",
+  "nr",
+  "ca",
+  "evtl",
+  "inkl",
+  "sog",
+  // French (`p. ex.`, `éq.`)
+  "ex",
+  "éq",
+  "chap",
+  "env",
+  // Spanish and Portuguese (`p. ej.`, `pág.`)
+  "ej",
+  "pág",
+  "núm",
+  "aprox",
+  "ud",
+  "uds",
+  "sra",
+  // Italian (`ad es.`)
+  "es",
+  "ecc",
+  "pag",
+  "sig",
+  "dott",
+  "cap",
+  // Russian
+  "т.е",
+  "т.д",
+  "т.п",
+  "т.к",
+  "рис",
+  "табл",
+  "см",
+  "напр",
+  "гл",
+  "др",
+  "стр",
+  "ср",
+  "им",
+  "гг",
 ]);
 
-const CLOSING_PUNCTUATION = new Set([")", "]", '"', "'", "”", "’"]);
+const CLOSING_PUNCTUATION = new Set([")", "]", '"', "'", "”", "’", "»"]);
+
+/** Chinese and Japanese characters, and CJK punctuation (full-width forms). */
+const CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u3000-\u303F\uFF00-\uFFEF]/u;
+
+/** Whether `ch` is written without spaces between words (Chinese, Japanese). */
+export function isCjkChar(ch: string | undefined): boolean {
+  return ch !== undefined && CJK.test(ch);
+}
+
+/** Whether a block of text is mainly Chinese or Japanese. */
+export function isCjkText(text: string): boolean {
+  let cjk = 0;
+  let other = 0;
+  for (const ch of text) {
+    if (isCjkChar(ch)) {
+      cjk++;
+    } else if (/\p{L}/u.test(ch)) {
+      other++;
+    }
+  }
+  return cjk > other;
+}
+
+const CJK_TERMINATORS = new Set(["。", "！", "？", "．", "!", "?"]);
+const CJK_CLOSING = new Set(["」", "』", "”", "’", "）", ")", "】", "》", "〉", '"', "'"]);
 
 const ROMAN_NUMERAL = /^[ivxlc]+$/iu;
 
@@ -66,14 +141,18 @@ export function isLetter(ch: string | undefined): boolean {
 
 /** Whether a line (trimmed) ends with sentence-final punctuation. */
 export function endsWithTerminal(text: string): boolean {
-  return /[.!?:]["'”’)\]]*$/u.test(text.trimEnd());
+  return /[.!?:。！？．：]["'”’)\]」』）】》]*$/u.test(text.trimEnd());
 }
 
 /**
  * Returns sentence end offsets (exclusive) in `text`. The final offset is
- * always `text.length`.
+ * always `text.length`. Chinese and Japanese text uses its own punctuation
+ * rules; other languages the rules below.
  */
 export function findSentenceEnds(text: string): number[] {
+  if (isCjkText(text)) {
+    return findCjkSentenceEnds(text);
+  }
   const ends: number[] = [];
   let sentenceStart = 0;
 
@@ -140,6 +219,11 @@ function isSentencePeriod(text: string, start: number, dot: number): boolean {
   if (/^\p{Lu}$/u.test(token)) {
     return false;
   }
+  // Two-part abbreviations such as `z. B.`, `d. h.`, `p. ex.`, `p. ej.`. A
+  // single lower-case letter alone often ends a sentence (`at position t.`).
+  if (/^\p{Ll}$/u.test(token) && /^\s*\p{L}{1,3}\./u.test(text.slice(dot + 1))) {
+    return false;
+  }
   // Enumerators at the start of a sentence: `1.`, `(a).`, `iv.`
   if (
     before.trim() === token &&
@@ -153,6 +237,44 @@ function isSentencePeriod(text: string, start: number, dot: number): boolean {
     return false;
   }
   return true;
+}
+
+/**
+ * Sentence ends in Chinese and Japanese: after 。！？ (and ．, the full-width
+ * period of some Japanese papers), including closing quotes and brackets. No
+ * space is needed after them.
+ */
+function findCjkSentenceEnds(text: string): number[] {
+  const ends: number[] = [];
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i] ?? "";
+    if (!CJK_TERMINATORS.has(ch)) {
+      continue;
+    }
+    // Half-width ! and ? only end a sentence inside Chinese/Japanese text, and
+    // ． is not a decimal point (`3．2`).
+    const prev = text[i - 1];
+    const next = text[i + 1];
+    if ((ch === "!" || ch === "?") && !isCjkChar(prev)) {
+      continue;
+    }
+    if (ch === "．" && /\p{Nd}/u.test(prev ?? "") && /\p{Nd}/u.test(next ?? "")) {
+      continue;
+    }
+    let j = i + 1;
+    while (
+      j < text.length &&
+      (CJK_TERMINATORS.has(text[j] ?? "") || CJK_CLOSING.has(text[j] ?? ""))
+    ) {
+      j++;
+    }
+    if (j < text.length) {
+      ends.push(j);
+    }
+    i = j - 1;
+  }
+  ends.push(text.length);
+  return ends;
 }
 
 const CAPTION_LABELS = new Set([
@@ -212,13 +334,17 @@ const LINE_BREAK_HYPHENS = new Set(["-", "­", "‐"]);
  * How to join a line ending in `prev` + `last` with a line starting with `next`:
  * - `"merge"`: a word broken across lines (`trans-` / `former`), drop the hyphen;
  * - `"keep"`: a hyphenated name (`Trace-` / `Monkey`), keep the hyphen, no space;
+ * - `"join"`: Chinese or Japanese text continues without a space;
  * - `"space"`: an ordinary line break.
  */
 export function lineJoin(
   prev: string | undefined,
   last: string | undefined,
   next: string | undefined,
-): "merge" | "keep" | "space" {
+): "merge" | "keep" | "join" | "space" {
+  if (isCjkChar(last) || isCjkChar(next)) {
+    return "join";
+  }
   if (last === undefined || !LINE_BREAK_HYPHENS.has(last) || !isLetter(prev) || !isLetter(next)) {
     return "space";
   }

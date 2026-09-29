@@ -1,6 +1,12 @@
 /** Translation settings (`pararead.*`), independent of the VS Code API. */
 
-import { DEFAULT_TARGET_LANGUAGE, languageInfo, resolveTargetLanguage } from "../languages";
+import {
+  AUTO_SOURCE,
+  DEFAULT_TARGET_LANGUAGE,
+  languageInfo,
+  resolveSourceLanguage,
+  resolveTargetLanguage,
+} from "../languages";
 import type { TranslateRange } from "../messages";
 
 export interface TranslationConfig {
@@ -18,6 +24,8 @@ export interface TranslationConfig {
   extraBody: Record<string, unknown>;
   /** Resolved language code (never "auto"). */
   targetLanguage: string;
+  /** Language code of the papers, or "auto" to detect it per sentence. */
+  sourceLanguage: string;
 }
 
 export const DEFAULT_CONFIG: TranslationConfig = {
@@ -31,6 +39,7 @@ export const DEFAULT_CONFIG: TranslationConfig = {
   cacheDir: "",
   extraBody: { thinking: { type: "disabled" } },
   targetLanguage: DEFAULT_TARGET_LANGUAGE,
+  sourceLanguage: AUTO_SOURCE,
 };
 
 type Getter = <T>(key: string, fallback: T) => T;
@@ -100,5 +109,6 @@ export function readTranslationConfig(get: Getter, displayLanguage = "en"): Tran
     cacheDir: string("cacheDir", d.cacheDir),
     extraBody: isRecord(extraBody) ? extraBody : d.extraBody,
     targetLanguage,
+    sourceLanguage: resolveSourceLanguage(get<unknown>("sourceLanguage", d.sourceLanguage)),
   };
 }

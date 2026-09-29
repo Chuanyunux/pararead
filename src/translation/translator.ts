@@ -4,7 +4,7 @@
  * successful translations are cached.
  */
 
-import { isAlreadyInLanguage } from "../languages";
+import { AUTO_SOURCE, detectLanguage, isAlreadyInLanguage, languageInfo } from "../languages";
 import { cacheKey, type TranslationCache } from "./cache";
 import { ApiError, type ChatClient } from "./client";
 import { type ErrorCode, errorDetails, type MessageArg, TranslationError } from "./errors";
@@ -35,6 +35,8 @@ export interface TranslationFailure {
 export interface TranslatorOptions {
   model: string;
   targetLanguage: string;
+  /** Language code, or "auto" to detect it per request. */
+  sourceLanguage?: string;
   glossary: Record<string, string>;
   maxCharsPerRequest: number;
   /** Parallel API requests. */
@@ -71,7 +73,8 @@ export class Translator {
   readonly #client: ChatClient;
   readonly #cache: TranslationCache;
   readonly #options: Required<TranslatorOptions>;
-  readonly #systemPrompt: string;
+  /** System prompts by source language, built on first use. */
+  readonly #systemPrompts = new Map<string, string>();
   readonly #glossaryHash: string;
   readonly #inflight = new Map<string, Promise<string>>();
   readonly #slots: Semaphore;
@@ -94,8 +97,14 @@ export class Translator {
   ) {
     this.#client = client;
     this.#cache = cache;
-    this.#options = { concurrency: 2, maxSentencesPerRequest: 40, ...options };
-    this.#systemPrompt = buildSystemPrompt(options.glossary, options.targetLanguage);
+    this.#options = {
+      concurrency: 2,
+      maxSentencesPerRequest: 40,
+      sourceLanguage: AUTO_SOURCE,
+      ...options,
+    };
+    // Fails early on an unsupported target language.
+    this.#systemPromptFor(this.#options.sourceLanguage);
     this.#glossaryHash = glossaryHash(options.glossary);
     this.#slots = new Semaphore(this.#options.concurrency);
     this.#log = log;
@@ -124,7 +133,8 @@ export class Translator {
     const results: TranslationResult[] = [];
     const toTranslate: SourceSentence[] = [];
     for (const sentence of sentences) {
-      if (isAlreadyInLanguage(sentence.text, this.#options.targetLanguage)) {
+      const { targetLanguage, sourceLanguage } = this.#options;
+      if (isAlreadyInLanguage(sentence.text, targetLanguage, sourceLanguage)) {
         const result = { id: sentence.id, translation: sentence.text, cacheKey: "" };
         results.push(result);
         onResult?.(result);
@@ -262,13 +272,14 @@ export class Translator {
     // Batch-local ids keep requests independent of page ids and let
     // identical sentences from different pages share one request.
     const sentences = batch.map((entry, i) => ({ id: `s${i + 1}`, text: entry.text }));
+    const source = this.#sourceOf(sentences);
     let found: Map<string, string>;
     try {
       const completion = await this.#slots.run(() => {
         signal?.throwIfAborted();
         this.stats.apiCalls++;
-        return this.#client.complete(buildMessages(this.#systemPrompt, sentences), {
-          maxTokens: maxTokensFor(sentences),
+        return this.#client.complete(buildMessages(this.#systemPromptFor(source), sentences), {
+          maxTokens: maxTokensFor(sentences, source),
           ...(signal === undefined ? {} : { signal }),
         });
       });
@@ -317,6 +328,27 @@ export class Translator {
     await Promise.all(missing.map((entry) => this.#runBatch([entry], signal)));
   }
 
+  /**
+   * Source language of a request: the setting, or else detected from the
+   * request's text as a whole; "auto" when unsure.
+   */
+  #sourceOf(sentences: readonly SourceSentence[]): string {
+    const { sourceLanguage } = this.#options;
+    if (sourceLanguage !== AUTO_SOURCE) {
+      return sourceLanguage;
+    }
+    return detectLanguage(sentences.map((s) => s.text).join(" ")) ?? AUTO_SOURCE;
+  }
+
+  #systemPromptFor(source: string): string {
+    let prompt = this.#systemPrompts.get(source);
+    if (prompt === undefined) {
+      prompt = buildSystemPrompt(this.#options.glossary, this.#options.targetLanguage, source);
+      this.#systemPrompts.set(source, prompt);
+    }
+    return prompt;
+  }
+
   #fail(entries: Pending[], error: unknown): void {
     const reason = error instanceof Error ? error : new Error(String(error));
     this.stats.failed += entries.length;
@@ -343,10 +375,16 @@ export class Translator {
   }
 }
 
-/** Output budget: Chinese output plus JSON overhead, with headroom against truncation. */
-function maxTokensFor(sentences: SourceSentence[]): number {
+/**
+ * Output budget: translation plus JSON overhead, with headroom against
+ * truncation. A character of Chinese, Japanese or Korean carries more meaning
+ * than a letter, so their translations need more tokens per source character.
+ */
+function maxTokensFor(sentences: SourceSentence[], source: string): number {
   const chars = sentences.reduce((sum, s) => sum + s.text.length, 0);
-  return Math.min(8192, Math.ceil(chars * 0.8) + 30 * sentences.length + 256);
+  const script = languageInfo(source)?.script;
+  const perChar = script === "han" || script === "kana" || script === "hangul" ? 1.5 : 0.8;
+  return Math.min(8192, Math.ceil(chars * perChar) + 30 * sentences.length + 256);
 }
 
 class Semaphore {

@@ -4,6 +4,25 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-09-29
+
+### Added
+
+- Papers in any of the 11 supported languages, not only English. The language
+  of each sentence is detected automatically; `pararead.sourceLanguage` sets it
+  explicitly when detection fails.
+- Chinese and Japanese papers are split at full-width punctuation, and their
+  lines are joined without spaces. Headings, lists and captions are recognized
+  in these languages too (e.g. `第3章`, `一、`, `图 1`, `表 2`).
+- Common German, French, Spanish, Portuguese, Italian and Russian
+  abbreviations (`z. B.`, `p. ex.`, `см.`) no longer end a sentence.
+- Simplified and Traditional Chinese are told apart, so a Traditional Chinese
+  paper can be read in Simplified Chinese and vice versa.
+
+### Changed
+
+- The translation prompt names the detected source language of each request.
+
 ## [0.3.0] - 2026-09-29
 
 ### Added

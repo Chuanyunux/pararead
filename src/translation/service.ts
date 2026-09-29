@@ -200,13 +200,14 @@ export class TranslationService implements Disposable {
       {
         model: config.model,
         targetLanguage: config.targetLanguage,
+        sourceLanguage: config.sourceLanguage,
         glossary: config.glossary,
         maxCharsPerRequest: config.maxCharsPerRequest,
       },
       (line) => this.#log.info(line),
     );
     this.#log.info(
-      `Translation API ${config.baseUrl}, model ${config.model}, target language ${config.targetLanguage}, cache ${this.#cache.dir}`,
+      `Translation API ${config.baseUrl}, model ${config.model}, ${config.sourceLanguage} → ${config.targetLanguage}, cache ${this.#cache.dir}`,
     );
     return this.#translator;
   }

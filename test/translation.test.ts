@@ -18,7 +18,7 @@ import { Translator } from "../src/translation/translator";
 
 /** Fake model: translates each sentence to `ZH(<text>)`, with scripted misbehaviour. */
 class FakeClient implements ChatClient {
-  calls: { sentences: { id: string; text: string }[] }[] = [];
+  calls: { system: string; sentences: { id: string; text: string }[] }[] = [];
   /** Per call index: drop these batch-local ids from the reply. */
   drop = new Map<number, string[]>();
   /** Per call index: reply with this raw content instead. */
@@ -31,7 +31,7 @@ class FakeClient implements ChatClient {
     const { sentences } = JSON.parse(messages[1]?.content ?? "{}") as {
       sentences: { id: string; text: string }[];
     };
-    this.calls.push({ sentences });
+    this.calls.push({ system: messages[0]?.content ?? "", sentences });
     const error = this.errors.get(index);
     if (error !== undefined) {
       throw error;
@@ -221,6 +221,31 @@ describe("Translator", () => {
     const files = await readdir(dir);
     expect(files.length).toBeGreaterThan(0);
     expect(files.every((f) => /^[0-9a-f]{2}\.json$/u.test(f))).toBe(true);
+  });
+
+  it("names the detected or configured source language in the prompt", async () => {
+    const client = new FakeClient();
+    const translator = new Translator(client, new TranslationCache(dir), {
+      ...options,
+      targetLanguage: "en",
+    });
+    await translator.translate([{ id: "a", text: "本文提出了一种新的注意力机制。" }]);
+    await translator.translate([
+      { id: "b", text: "Wir schlagen ein neues Modell für die Übersetzung vor." },
+    ]);
+    await translator.translate([{ id: "c", text: "BLEU 28.4" }]);
+    expect(client.calls.map((c) => /from (.+?) into/u.exec(c.system)?.[1])).toEqual([
+      "Simplified Chinese (简体中文)",
+      "German (Deutsch)",
+      "its source language",
+    ]);
+
+    const fixed = new FakeClient();
+    await new Translator(fixed, new TranslationCache(dir), {
+      ...options,
+      sourceLanguage: "ja",
+    }).translate([{ id: "d", text: "BLEU 28.4" }]);
+    expect(fixed.calls[0]?.system).toContain("from Japanese (日本語) into");
   });
 });
 

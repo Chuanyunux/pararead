@@ -90,7 +90,7 @@ describe("glossaryFor", () => {
 
 describe("buildSystemPrompt", () => {
   it("names the language pair and adds the language's register note", () => {
-    const ja = buildSystemPrompt({}, "ja");
+    const ja = buildSystemPrompt({}, "ja", "en");
     expect(ja).toContain("from English into Japanese (日本語)");
     expect(ja).toContain("である");
     expect(buildSystemPrompt({}, "zh-TW")).toContain("Traditional Chinese characters");

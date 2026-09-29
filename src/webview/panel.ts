@@ -7,6 +7,7 @@
 import { languageInfo } from "../languages";
 import { t } from "./i18n";
 import { HOVER_DWELL_MS } from "./pointer-select";
+import { isCjkChar } from "./segmenter/protect";
 import type { Block, PageSegmentation, Sentence } from "./segmenter/types";
 import type { SelectionController } from "./selection";
 import type { SentenceStore } from "./sentence-store";
@@ -376,7 +377,7 @@ export class TranslationPanel {
     }
     el.append(
       target,
-      element("div", "bilingualSource", block.sentences.map((s) => s.text).join(" ")),
+      element("div", "bilingualSource", block.sentences.map((s) => withSpace(s.text)).join("")),
     );
     return el;
   }
@@ -392,7 +393,7 @@ function renderSentence(
   span.dataset["status"] = state.status;
   // Sentences are separated by a space, except in Chinese and Japanese.
   span.textContent =
-    state.status === "done" ? `${state.translation}${spaced ? " " : ""}` : `${sentence.text} `;
+    state.status === "done" ? `${state.translation}${spaced ? " " : ""}` : withSpace(sentence.text);
   span.title = state.status === "error" ? t("translationFailed", state.message) : "";
 }
 
@@ -453,4 +454,9 @@ function readState(vscode: VsCodeApi): Partial<PanelState> {
     ...(typeof panel.width === "number" ? { width: panel.width } : {}),
     ...(typeof panel.showSource === "boolean" ? { showSource: panel.showSource } : {}),
   };
+}
+
+/** Source text followed by a space, unless it ends in Chinese or Japanese. */
+function withSpace(text: string): string {
+  return isCjkChar(text.at(-1)) ? text : `${text} `;
 }

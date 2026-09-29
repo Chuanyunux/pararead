@@ -1,8 +1,8 @@
 {
   "name": "pararead",
   "displayName": "ParaRead: Bilingual PDF Paper Reader",
-  "version": "0.3.0",
-  "description": "Read English PDF papers sentence by sentence: hover a sentence and its translation (Chinese, Japanese, Korean, French, German, Spanish and more) sits right beside it, at the same height. Layout-preserving translation panel, DeepSeek or any OpenAI-compatible API, annotations saved into the PDF.",
+  "version": "0.4.0",
+  "description": "Read PDF papers sentence by sentence: hover a sentence and its translation sits right beside it, at the same height. Translates between 11 languages, including English, Chinese, Japanese, Korean, French, German and Spanish. Layout-preserving translation panel, DeepSeek or any OpenAI-compatible API, annotations saved into the PDF.",
   "categories": [
     "Visualization",
     "Other"
@@ -181,6 +181,53 @@
             "%language.it%"
           ],
           "markdownDescription": "%config.targetLanguage%"
+        },
+        "pararead.sourceLanguage": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "zh-CN",
+            "zh-TW",
+            "en",
+            "ja",
+            "ko",
+            "fr",
+            "de",
+            "es",
+            "pt",
+            "ru",
+            "it"
+          ],
+          "enumItemLabels": [
+            "%config.sourceLanguage.autoLabel%",
+            "简体中文",
+            "繁體中文",
+            "English",
+            "日本語",
+            "한국어",
+            "Français",
+            "Deutsch",
+            "Español",
+            "Português",
+            "Русский",
+            "Italiano"
+          ],
+          "enumDescriptions": [
+            "%config.sourceLanguage.auto%",
+            "%language.zh-CN%",
+            "%language.zh-TW%",
+            "%language.en%",
+            "%language.ja%",
+            "%language.ko%",
+            "%language.fr%",
+            "%language.de%",
+            "%language.es%",
+            "%language.pt%",
+            "%language.ru%",
+            "%language.it%"
+          ],
+          "markdownDescription": "%config.sourceLanguage%"
         },
         "pararead.glossary": {
           "type": "object",

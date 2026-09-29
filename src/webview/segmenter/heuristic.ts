@@ -12,6 +12,7 @@ import {
   expandLigature,
   findSentenceEnds,
   isLetter,
+  isCjkChar,
   isLowercaseLetter,
   lineJoin,
 } from "./protect";
@@ -138,8 +139,11 @@ function dominantSize(lines: Line[]): number {
   return best || 10;
 }
 
-const LIST_MARKER = /^(?:[•◦▪‣∙·∗*–—-]|\(?\d{1,2}[.)]|\(?[a-z][.)]|\(?[ivx]{1,4}[.)])\s/u;
-const SECTION_NUMBER = /^(?:\d+(?:\.\d+)*\.?|[A-Z](?:\.\d+)*\.?)\s+\p{Lu}/u;
+const LIST_MARKER =
+  /^(?:(?:[•◦▪‣∙·∗*–—-]|\(?\d{1,2}[.)]|\(?[a-z][.)]|\(?[ivx]{1,4}[.)])\s|[①-⑳・]|（\d{1,2}）|[一二三四五六七八九十]+、)/u;
+/** `3.1 Method`, `A.2 Proofs`, `1 引言`, `第2章`. */
+const SECTION_NUMBER =
+  /^(?:(?:\d+(?:\.\d+)*\.?|[A-Z](?:\.\d+)*\.?)(?:\s+\p{Lu}|\s*\p{Lo})|第[\d一二三四五六七八九十]+[章节節])/u;
 const HEADING_MAX_CHARS = 90;
 const FIGURE_MAX_CHARS = 60;
 
@@ -165,8 +169,9 @@ function classify(
   const headingLike =
     lines.length <= 2 &&
     text.length <= HEADING_MAX_CHARS &&
-    !/[.,;!?]["'”’)\]]*$/u.test(text) &&
-    /^[\p{Lu}\d]/u.test(text);
+    !/[.,;!?。，；！？．]["'”’)\]」』）]*$/u.test(text) &&
+    // Upper case, digits, or scripts without case (Chinese, Japanese, Korean).
+    /^[\p{Lu}\p{Lo}\d]/u.test(text);
   if (headingLike && (large || SECTION_NUMBER.test(text) || lines.length === 1)) {
     const level = size >= bodySize * 1.35 ? 1 : large ? 2 : 3;
     return { role: "heading", level };
@@ -316,7 +321,13 @@ function groupBlocks(lines: Line[]): Line[][] {
 /** How many blocks ahead to look for the continuation of a paragraph. */
 const FLOAT_LOOKAHEAD = 30;
 
-const CAPTION = /^(Figure|Fig\.|Table|Algorithm|Listing)\s*\d/u;
+const CAPTION =
+  /^(?:Figure|Fig\.|Table|Algorithm|Listing|Abbildung|Abb\.|Tabelle|Tableau|Figura|Tabla|Tabela|Tabella|Рис\.|Рисунок|Таблица|图|表|図|그림|표)\s*\d/u;
+
+/** Whether a line can continue a sentence from a previous line or column. */
+function continuesSentence(first: string | undefined): boolean {
+  return isLowercaseLetter(first) || isCjkChar(first);
+}
 
 /**
  * Re-joins a paragraph that was interrupted by a float (figure, table, code
@@ -351,7 +362,7 @@ function mergeAcrossFloats(groups: Line[][]): Line[][] {
       ) {
         continue;
       }
-      if (isLowercaseLetter(candidate[0]?.text[0])) {
+      if (continuesSentence(candidate[0]?.text[0])) {
         head.push(...candidate);
         groups.splice(j, 1);
       }
@@ -380,7 +391,7 @@ function continuesBlock(block: BlockState, line: Line): boolean {
   const newColumn = dy < -SAME_LINE_BASELINE * size || line.x0 > prev.x1 + size;
   if (newColumn) {
     // A paragraph continued at the top of the next column.
-    return !endsWithTerminal(prev.text) && isLowercaseLetter(line.text[0]);
+    return !endsWithTerminal(prev.text) && continuesSentence(line.text[0]);
   }
 
   const maxGap =
@@ -427,7 +438,9 @@ function buildGlyphs(lines: Line[]): Glyph[] {
     for (const frag of line.frags) {
       if (prev !== null && !prev.blank && !frag.blank) {
         const gap = frag.x - (prev.x + prev.w);
-        if (gap > WORD_GAP * Math.max(prev.size, frag.size)) {
+        // Chinese and Japanese characters are not separated by spaces.
+        const cjk = isCjkChar(prev.str.at(-1)) && isCjkChar(frag.str[0]);
+        if (!cjk && gap > WORD_GAP * Math.max(prev.size, frag.size)) {
           push({ ch: " ", item: -1, off: 0, line: lineIndex });
         }
       }
@@ -458,6 +471,7 @@ function joinLines(glyphs: Glyph[], next: Line, lineIndex: number): void {
       glyphs.pop();
       return;
     case "keep":
+    case "join":
       return;
     case "space":
       glyphs.push({ ch: " ", item: -1, off: 0, line: lineIndex });

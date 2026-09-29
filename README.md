@@ -4,8 +4,8 @@
 
 # ParaRead
 
-**鼠标指向英文句子，译文就在它旁边的同一高度。**
-在 VS Code 里逐句对照阅读英文 PDF 论文。
+**鼠标指向论文里的句子，译文就在它旁边的同一高度。**
+在 VS Code 里逐句对照阅读外文 PDF 论文。
 
 [![CI](https://github.com/Chuanyunux/pararead/actions/workflows/ci.yml/badge.svg)](https://github.com/Chuanyunux/pararead/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Chuanyunux/pararead)](https://github.com/Chuanyunux/pararead/releases)
@@ -20,11 +20,11 @@
 
 ## 为什么用 ParaRead
 
-读英文论文时，整篇翻译看不出原文说了什么，逐段复制翻译又要不停切换窗口。ParaRead 把译文放在原文旁边，**一句对一句**：
+读外文论文时，整篇翻译看不出原文说了什么，逐段复制翻译又要不停切换窗口。ParaRead 把译文放在原文旁边，**一句对一句**：
 
 - 🎯 **逐句对照**：鼠标停在句子上，原句加框，一条箭头指向对应的译文，两者保持在同一水平线；滚动论文时译文跟着滚。
 - 📄 **保留原文格式**：译文面板按标题、段落、列表、图表说明、脚注、代码排版，像一篇正式文档，而不是一句一行的列表。
-- 🌐 **译成 11 种语言**：简体中文、繁體中文、English、日本語、한국어、Français、Deutsch、Español、Português、Русский、Italiano，默认跟随 VS Code 界面语言。插件界面支持中文和英文，同样跟随 VS Code。
+- 🌐 **11 种语言任意互译**：简体中文、繁體中文、English、日本語、한국어、Français、Deutsch、Español、Português、Русский、Italiano。论文语言逐句自动识别，中文、日文论文按全角标点分句；译文语言默认跟随 VS Code 界面语言。插件界面支持中文和英文，同样跟随 VS Code。
 - ✍️ **仍然是完整的 PDF 阅读器**：高亮、批注、手绘都能用，`Ctrl+S` 直接保存回 PDF。
 
 ## 三步上手
@@ -43,7 +43,7 @@
 | 单击 / Alt+单击句子    | 选中并立即翻译它所在的段落                     |
 | 单击空白处 / `Esc`     | 取消选中                                       |
 | 在译文上悬停 / 单击    | 反向定位原句（单击会滚动到原句）               |
-| 面板顶部「原文」       | 在每段译文下显示英文原文                       |
+| 面板顶部「原文」       | 在每段译文下显示原文                           |
 | 工具栏面板图标         | 显示 / 隐藏译文面板；分隔条可拖动调整宽度      |
 | **ParaRead: 翻译整篇** | 确认后翻译全文，显示进度，可随时取消           |
 
@@ -73,6 +73,7 @@
 | ----------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
 | `pararead.baseUrl`            | `https://api.deepseek.com`           | OpenAI 兼容接口地址；Ollama 用 `http://localhost:11434/v1`                                                            |
 | `pararead.targetLanguage`     | `auto`                               | 译文语言；`auto` 跟随 VS Code 界面语言，也可选 `zh-CN`、`zh-TW`、`en`、`ja`、`ko`、`fr`、`de`、`es`、`pt`、`ru`、`it` |
+| `pararead.sourceLanguage`     | `auto`                               | 论文原文的语言；`auto` 逐句自动识别，识别不准时可指定                                                                 |
 | `pararead.model`              | `deepseek-flash`                     | 模型名，例如 `deepseek-v4-pro`                                                                                        |
 | `pararead.temperature`        | `0.7`                                | 越低术语译法越一致                                                                                                    |
 | `pararead.extraBody`          | `{"thinking": {"type": "disabled"}}` | 附加请求字段；DeepSeek 默认开启思考模式，翻译时关闭。其他服务可设为 `{}`                                              |
@@ -90,6 +91,8 @@
 **会上传整个 PDF 吗？** 不会。只有需要翻译的句子文本会发送到你配置的接口，PDF 文件本身不会离开本机。
 
 **双栏论文效果如何？** 支持双栏、被图表打断的段落、跨栏续写的段落。当前的限制是：跨页的句子会被拆成两句，整行公式可能被当作句子，标题页的作者列表可能被识别成标题。
+
+**支持哪些语言的论文？** 横排的中文、日文、韩文、俄文和英、法、德、西、葡、意文论文。竖排版面和从右向左书写的语言（如阿拉伯语）暂不支持。
 
 **可以只用本地模型吗？** 可以。把 `pararead.baseUrl` 设为本地 Ollama 地址、`pararead.extraBody` 设为 `{}` 即可，无需 API Key。
 
@@ -121,7 +124,7 @@ pnpm run check      # 类型检查、lint、格式检查
 
 ## English
 
-**ParaRead** — hover over an English sentence and its translation sits right beside it, at the same height. A sentence-by-sentence bilingual reader for English PDF papers in VS Code, translating into 11 languages: Chinese (Simplified and Traditional), Japanese, Korean, French, German, Spanish, Portuguese, Russian, Italian and English. The target language follows the VS Code display language by default (`pararead.targetLanguage`).
+**ParaRead** — hover over a sentence and its translation sits right beside it, at the same height. A sentence-by-sentence bilingual reader for PDF papers in VS Code, translating between 11 languages: Chinese (Simplified and Traditional), English, Japanese, Korean, French, German, Spanish, Portuguese, Russian and Italian. The language of the paper is detected sentence by sentence (`pararead.sourceLanguage`), and Chinese and Japanese papers are split at full-width punctuation. The target language follows the VS Code display language by default (`pararead.targetLanguage`). Vertical text and right-to-left languages are not supported.
 
 - 🎯 **Sentence linking**: hovering a sentence outlines it, draws an arrow to its translation and keeps both level; the translation scrolls with the paper. Click to translate its paragraph right away; click empty space or press `Esc` to clear.
 - 📄 **Layout-preserving translation panel**: headings, paragraphs, lists, captions, footnotes and code, page by page, with an optional view of the original.

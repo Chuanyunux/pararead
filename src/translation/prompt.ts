@@ -6,7 +6,7 @@
 
 import { createHash } from "node:crypto";
 
-import { type LanguageInfo, languageInfo, SOURCE_LANGUAGE } from "../languages";
+import { AUTO_SOURCE, type LanguageInfo, languageInfo } from "../languages";
 
 /**
  * Bump when the prompt changes in a way that should invalidate cached
@@ -45,18 +45,23 @@ function describe(info: LanguageInfo): string {
     : `${info.englishName} (${info.nativeName})`;
 }
 
+/**
+ * System prompt for one language pair. With `sourceLanguage` "auto" (source
+ * unknown or mixed) the model is told to translate from the source language.
+ */
 export function buildSystemPrompt(
   glossary: Record<string, string>,
   targetLanguage: string,
-  sourceLanguage: string = SOURCE_LANGUAGE,
+  sourceLanguage: string = AUTO_SOURCE,
 ): string {
   const target = languageInfo(targetLanguage);
-  const source = languageInfo(sourceLanguage);
-  if (target === undefined || source === undefined) {
+  const source = sourceLanguage === AUTO_SOURCE ? undefined : languageInfo(sourceLanguage);
+  if (target === undefined || (source === undefined && sourceLanguage !== AUTO_SOURCE)) {
     throw new Error(`Unsupported language pair: ${sourceLanguage} → ${targetLanguage}`);
   }
+  const from = source === undefined ? "its source language" : describe(source);
   const lines = [
-    `You are a professional translator of academic papers. Translate each sentence the user gives from ${describe(source)} into ${describe(target)}, in the register of academic writing.`,
+    `You are a professional translator of academic papers. Translate each sentence the user gives from ${from} into ${describe(target)}, in the register of academic writing.`,
     "",
     "Rules:",
     "1. Translate sentence by sentence: exactly one translation per id; do not merge, split or skip sentences; return every id unchanged.",
