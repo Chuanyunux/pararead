@@ -368,7 +368,8 @@ describe("prompt and config", () => {
     expect(config.maxCharsPerRequest).toBe(3000);
     expect(config.translateRange).toBe("nearby");
     expect(config.glossary).toEqual({ attention: "注意力" });
-    expect(config.extraBody).toEqual({ thinking: { type: "disabled" } });
+    // Service defaults such as DeepSeek's `thinking` switch are added by `requestExtras`.
+    expect(config.extraBody).toEqual({});
     expect(config.model).toBe("deepseek-flash");
   });
 });

@@ -110,14 +110,26 @@ function fakeSecrets(fireEvents: boolean) {
   };
 }
 
+interface FakeRequest {
+  url: string;
+  auth: string | null;
+  system: string;
+  body: Record<string, unknown>;
+}
+
 /** Fake chat completions endpoint: translates to `译(<text>)`. */
-function fakeDeepSeek(requests: { auth: string | null; system: string }[]) {
-  return vi.fn(async (_url: string, init: RequestInit) => {
+function fakeDeepSeek(requests: FakeRequest[]) {
+  return vi.fn(async (url: string, init: RequestInit) => {
     const body = JSON.parse(String(init.body)) as {
       messages: { role: string; content: string }[];
     };
     const headers = new Headers(init.headers);
-    requests.push({ auth: headers.get("authorization"), system: body.messages[0]?.content ?? "" });
+    requests.push({
+      url,
+      auth: headers.get("authorization"),
+      system: body.messages[0]?.content ?? "",
+      body: body as unknown as Record<string, unknown>,
+    });
     const { sentences } = JSON.parse(body.messages[1]?.content ?? "{}") as {
       sentences: { id: string; text: string }[];
     };
@@ -145,14 +157,15 @@ afterEach(async () => {
   settingUpdate.mockClear();
   settings.clear();
   vscode.env.language = "zh-cn";
-  await rm(dir, { recursive: true, force: true });
+  // The cache may still be flushing after dispose (Windows locks open files).
+  await rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
 });
 
 describe("translation host", () => {
   it.each([true, false])(
     "translates once the API key is set after a failed request (secret events: %s)",
     async (fireEvents) => {
-      const requests: { auth: string | null; system: string }[] = [];
+      const requests: FakeRequest[] = [];
       vi.stubGlobal("fetch", fakeDeepSeek(requests));
       const secrets = fakeSecrets(fireEvents);
       const context = fakeContext(secrets, dir);
@@ -185,7 +198,10 @@ describe("translation host", () => {
       expect(failed).toMatchObject({ failures: [{ id: "p1-b1-s1" }] });
       expect(requests).toHaveLength(0);
 
-      // Setting the key notifies the viewers...
+      // Setting the key (keeping the service) notifies the viewers...
+      vi.mocked(vscode.window.showQuickPick).mockImplementationOnce(
+        async (items) => (await items)[0] as never,
+      );
       await service.setApiKey();
       await vi.waitFor(() => expect(keyChanged).toHaveBeenCalled());
 
@@ -206,7 +222,7 @@ describe("translation host", () => {
   );
 
   it("offers to choose a language when the paper is in the automatic target language", async () => {
-    const requests: { auth: string | null; system: string }[] = [];
+    const requests: FakeRequest[] = [];
     vi.stubGlobal("fetch", fakeDeepSeek(requests));
     vscode.env.language = "en";
     const secrets = fakeSecrets(false);
@@ -304,5 +320,97 @@ describe("translation host", () => {
     // "auto" is the current value.
     expect(items.at(-1)?.label).toMatch(/^\$\(check\) /u);
     service.dispose();
+  });
+
+  describe("choosing the translation service", () => {
+    const english = [{ id: "a", text: "We propose a new model for translation.", group: "b" }];
+
+    it("switches to a preset: address, editable model, key; no DeepSeek fields", async () => {
+      const requests: FakeRequest[] = [];
+      vi.stubGlobal("fetch", fakeDeepSeek(requests));
+      const service = new TranslationService(fakeContext(fakeSecrets(false), dir));
+      vi.mocked(vscode.window.showQuickPick).mockImplementationOnce(
+        async (items) => (await items).find((i) => i.label === "OpenAI") as never,
+      );
+      const input = vi.mocked(vscode.window.showInputBox);
+      input.mockResolvedValueOnce(" my-model ").mockResolvedValueOnce("sk-openai");
+
+      await service.setApiKey();
+      expect(input.mock.calls[0]?.[0]).toMatchObject({ value: "gpt-4.1-mini" });
+      expect(input.mock.calls[1]?.[0]?.prompt).toContain("https://api.openai.com/v1");
+      expect(settingUpdate).toHaveBeenCalledWith("baseUrl", "https://api.openai.com/v1", 1);
+      expect(settingUpdate).toHaveBeenCalledWith("model", "my-model", 1);
+
+      await service.translate(english, {});
+      expect(requests[0]?.url).toBe("https://api.openai.com/v1/chat/completions");
+      expect(requests[0]?.auth).toBe("Bearer sk-openai");
+      expect(requests[0]?.body["model"]).toBe("my-model");
+      expect(requests[0]?.body).not.toHaveProperty("thinking");
+      service.dispose();
+    });
+
+    it("keeps turning off thinking for DeepSeek", async () => {
+      const requests: FakeRequest[] = [];
+      vi.stubGlobal("fetch", fakeDeepSeek(requests));
+      const secrets = fakeSecrets(false);
+      await secrets.store("pararead.apiKey", "sk-test");
+      const service = new TranslationService(fakeContext(secrets, dir));
+      await service.translate(english, {});
+      expect(requests[0]?.url).toBe("https://api.deepseek.com/chat/completions");
+      expect(requests[0]?.body["thinking"]).toEqual({ type: "disabled" });
+      service.dispose();
+    });
+
+    it("asks no key for a local service", async () => {
+      const service = new TranslationService(fakeContext(fakeSecrets(false), dir));
+      const keyChanged = vi.fn();
+      service.onDidChangeApiKey(keyChanged);
+      vi.mocked(vscode.window.showQuickPick).mockImplementationOnce(
+        async (items) => (await items).find((i) => i.label === "Ollama") as never,
+      );
+      const input = vi.mocked(vscode.window.showInputBox);
+      input.mockClear();
+      input.mockResolvedValueOnce("qwen2.5:7b");
+
+      await service.setApiKey();
+      expect(input).toHaveBeenCalledTimes(1);
+      expect(settingUpdate).toHaveBeenCalledWith("baseUrl", "http://localhost:11434/v1", 1);
+      expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+        "Ollama runs on this computer and needs no API key.",
+      );
+      expect(keyChanged).toHaveBeenCalled();
+      service.dispose();
+    });
+
+    it("accepts another OpenAI-compatible address", async () => {
+      const service = new TranslationService(fakeContext(fakeSecrets(false), dir));
+      vi.mocked(vscode.window.showQuickPick).mockImplementationOnce(
+        async (items) => (await items).at(-1) as never,
+      );
+      const input = vi.mocked(vscode.window.showInputBox);
+      input.mockClear();
+      input
+        .mockResolvedValueOnce(" https://llm.example.com/v1 ")
+        .mockResolvedValueOnce("custom-model")
+        .mockResolvedValueOnce("sk-custom");
+
+      await service.setApiKey();
+      const validate = input.mock.calls[0]?.[0]?.validateInput;
+      expect(validate?.("ftp://x")).toBeTruthy();
+      expect(validate?.("https://llm.example.com/v1")).toBeUndefined();
+      expect(settingUpdate).toHaveBeenCalledWith("baseUrl", "https://llm.example.com/v1", 1);
+      expect(settingUpdate).toHaveBeenCalledWith("model", "custom-model", 1);
+      service.dispose();
+    });
+
+    it("changes nothing when cancelled", async () => {
+      const service = new TranslationService(fakeContext(fakeSecrets(false), dir));
+      const input = vi.mocked(vscode.window.showInputBox);
+      input.mockClear();
+      await service.setApiKey();
+      expect(input).not.toHaveBeenCalled();
+      expect(settingUpdate).not.toHaveBeenCalled();
+      service.dispose();
+    });
   });
 });

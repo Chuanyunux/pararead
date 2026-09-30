@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] - 2026-09-30
+
+### Added
+
+- **ParaRead: Set Up Translation Service** (formerly *Set API Key*) first asks
+  for the service: DeepSeek, OpenAI, Qwen, Kimi, GLM, SiliconFlow, OpenRouter,
+  Google Gemini, Ollama, LM Studio or any other OpenAI-compatible API. It fills
+  in the address and a suggested model (editable), then asks for the API key;
+  local services need none. Choosing "Keep" only changes the key.
+
+### Changed
+
+- `pararead.extraBody` now defaults to `{}`. DeepSeek's thinking mode is still
+  turned off, but only for DeepSeek, so other services no longer receive a
+  field they may reject.
+
 ## [0.5.0] - 2026-09-29
 
 ### Added

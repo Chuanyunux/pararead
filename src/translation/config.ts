@@ -20,7 +20,7 @@ export interface TranslationConfig {
   translateRange: TranslateRange;
   /** Custom cache directory; empty for the extension's global storage. */
   cacheDir: string;
-  /** Extra top-level request body fields, e.g. DeepSeek's `thinking` switch. */
+  /** Extra top-level request body fields, added to the service defaults (`requestExtras`). */
   extraBody: Record<string, unknown>;
   /** Resolved language code (never "auto"). */
   targetLanguage: string;
@@ -39,7 +39,8 @@ export const DEFAULT_CONFIG: TranslationConfig = {
   glossary: {},
   translateRange: "nearby",
   cacheDir: "",
-  extraBody: { thinking: { type: "disabled" } },
+  // Service defaults (e.g. DeepSeek's `thinking` switch) come from `requestExtras`.
+  extraBody: {},
   targetLanguage: DEFAULT_TARGET_LANGUAGE,
   targetLanguageIsAuto: true,
   sourceLanguage: AUTO_SOURCE,

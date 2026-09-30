@@ -13,6 +13,7 @@ import {
   type ExtensionContext,
   l10n,
   type LogOutputChannel,
+  type QuickPickItem,
   window,
   workspace,
 } from "vscode";
@@ -24,6 +25,7 @@ import { OpenAICompatibleClient } from "./client";
 import { readTranslationConfig, type TranslationConfig } from "./config";
 import { ERROR_MESSAGES } from "./errors";
 import type { SourceSentence } from "./prompt";
+import { needsApiKey, type Provider, PROVIDERS, providerFor, requestExtras } from "./providers";
 import {
   type TranslateOptions,
   type TranslationFailure,
@@ -73,16 +75,6 @@ function supportedLanguageOf(locale: string): string | undefined {
 function readConfig(): TranslationConfig {
   const config = workspace.getConfiguration("pararead");
   return readTranslationConfig((key, fallback) => config.get(key, fallback), env.language);
-}
-
-/** Local servers (Ollama and the like) usually don't need a key. */
-function needsApiKey(baseUrl: string): boolean {
-  try {
-    const { hostname } = new URL(baseUrl);
-    return !["localhost", "127.0.0.1", "[::1]", "::1"].includes(hostname);
-  } catch {
-    return true;
-  }
 }
 
 export class TranslationService implements Disposable {
@@ -239,13 +231,22 @@ export class TranslationService implements Disposable {
     }
   }
 
+  /** Chooses the translation service (address and model), then asks for its key. */
   async setApiKey(): Promise<void> {
+    const service = await this.#chooseService();
+    if (service === undefined) {
+      return;
+    }
+    if (!needsApiKey(service.baseUrl)) {
+      await this.#keyChanged();
+      void window.showInformationMessage(
+        l10n.t("{0} runs on this computer and needs no API key.", service.name),
+      );
+      return;
+    }
     const key = await window.showInputBox({
       title: l10n.t("ParaRead: Set API Key"),
-      prompt: l10n.t(
-        "API key for {0}. It is kept in VS Code's secret storage.",
-        this.#config.baseUrl,
-      ),
+      prompt: l10n.t("API key for {0}. It is kept in VS Code's secret storage.", service.baseUrl),
       placeHolder: "sk-...",
       password: true,
       ignoreFocusOut: true,
@@ -264,6 +265,75 @@ export class TranslationService implements Disposable {
     // Don't rely on `secrets.onDidChange` for changes made in this window.
     await this.#keyChanged();
     void window.showInformationMessage(l10n.t("The API key was saved."));
+  }
+
+  /**
+   * Picks a service preset (or keeps the current one, or asks for another
+   * address) and a model, saved in the user settings. Undefined if cancelled.
+   */
+  async #chooseService(): Promise<{ name: string; baseUrl: string } | undefined> {
+    const { baseUrl: currentUrl, model: currentModel } = this.#config;
+    const current = providerFor(currentUrl);
+    const currentName = current?.name ?? currentUrl;
+    type Item = QuickPickItem & { provider?: Provider; action?: "keep" | "custom" };
+    const items: Item[] = [
+      { label: l10n.t("Keep {0}", currentName), description: currentModel, action: "keep" },
+      ...PROVIDERS.filter((p) => p !== current).map((provider) => ({
+        label: provider.name,
+        description:
+          provider.local === true ? l10n.t("Runs locally, no API key") : provider.baseUrl,
+        provider,
+      })),
+      { label: l10n.t("Other OpenAI-compatible service…"), action: "custom" },
+    ];
+    const choice = await window.showQuickPick(items, {
+      title: l10n.t("ParaRead: Translation Service"),
+      placeHolder: l10n.t("Service that translates the papers"),
+      matchOnDescription: true,
+      ignoreFocusOut: true,
+    });
+    if (choice === undefined) {
+      return undefined;
+    }
+    if (choice.action === "keep") {
+      return { name: currentName, baseUrl: currentUrl };
+    }
+
+    let baseUrl = choice.provider?.baseUrl;
+    if (baseUrl === undefined) {
+      baseUrl = await window.showInputBox({
+        title: l10n.t("ParaRead: Translation Service"),
+        prompt: l10n.t("Address of the OpenAI-compatible API, without /chat/completions"),
+        value: current === undefined ? currentUrl : "",
+        placeHolder: "https://example.com/v1",
+        ignoreFocusOut: true,
+        validateInput: (value) =>
+          /^https?:\/\/\S+$/u.test(value.trim())
+            ? undefined
+            : l10n.t("Enter an address that starts with http:// or https://."),
+      });
+      if (baseUrl === undefined) {
+        return undefined;
+      }
+      baseUrl = baseUrl.trim();
+    }
+    const model = await window.showInputBox({
+      title: l10n.t("ParaRead: Translation Service"),
+      prompt: l10n.t(
+        "Model name. The suggestion may be outdated; see the service's documentation for current models.",
+      ),
+      value: choice.provider?.model ?? "",
+      ignoreFocusOut: true,
+      validateInput: (value) => (value.trim() === "" ? l10n.t("Enter a model name.") : undefined),
+    });
+    if (model === undefined) {
+      return undefined;
+    }
+    const settings = workspace.getConfiguration("pararead");
+    await settings.update("baseUrl", baseUrl, ConfigurationTarget.Global);
+    await settings.update("model", model.trim(), ConfigurationTarget.Global);
+    this.#log.info(`Translation service set to ${baseUrl}, model ${model.trim()}`);
+    return { name: choice.provider?.name ?? baseUrl, baseUrl };
   }
 
   async clearCache(): Promise<void> {
@@ -323,7 +393,7 @@ export class TranslationService implements Disposable {
       model: config.model,
       temperature: config.temperature,
       timeoutMs: config.requestTimeoutMs,
-      extraBody: config.extraBody,
+      extraBody: requestExtras(config.baseUrl, config.extraBody),
       onRetry: (attempt, error) => this.#log.warn(`Retry ${attempt}: ${error.message}`),
     });
     this.#translator = new Translator(
