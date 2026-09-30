@@ -4,143 +4,125 @@
 
 # ParaRead
 
-**鼠标指向论文里的句子，译文就在它旁边的同一高度。**
-在 VS Code 里逐句对照阅读外文 PDF 论文。
+**Hover over a sentence in a paper, and its translation sits right beside it, at the same height.**
+Read foreign-language PDF papers sentence by sentence in VS Code.
 
 [![CI](https://github.com/Chuanyunux/pararead/actions/workflows/ci.yml/badge.svg)](https://github.com/Chuanyunux/pararead/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Chuanyunux/pararead)](https://github.com/Chuanyunux/pararead/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![VS Code](https://img.shields.io/badge/VS%20Code-%E2%89%A5%201.95-007ACC)](https://code.visualstudio.com/)
 
-**中文** · [English](#english)
+**English** · [简体中文](README.zh-CN.md)
 
 </div>
 
-<!-- Demo: docs/demo.gif — hover a sentence → arrow → aligned translation → scroll in sync. -->
+<!-- Demo GIFs (docs/): demo-hover.gif (hover → arrow → aligned translation → scroll in sync),
+     demo-panel.gif (show original, switch language), demo-setup.gif (set up the service). -->
 
-## 为什么用 ParaRead
+## Why ParaRead
 
-读外文论文时，整篇翻译看不出原文说了什么，逐段复制翻译又要不停切换窗口。ParaRead 把译文放在原文旁边，**一句对一句**：
+A translated paper hides what the original says, and copying paragraphs into a translator means switching windows all the time. ParaRead keeps the translation next to the original, **sentence by sentence**:
 
-- 🎯 **逐句对照**：鼠标停在句子上，原句加框，一条箭头指向对应的译文，两者保持在同一水平线；滚动论文时译文跟着滚。
-- 📄 **保留原文格式**：译文面板按标题、段落、列表、图表说明、脚注、代码排版，像一篇正式文档，而不是一句一行的列表。
-- 🌐 **11 种语言任意互译**：简体中文、繁體中文、English、日本語、한국어、Français、Deutsch、Español、Português、Русский、Italiano。论文语言逐句自动识别，中文、日文论文按全角标点分句；译文语言默认跟随 VS Code 界面语言。插件界面支持中文和英文，同样跟随 VS Code。
-- ✍️ **仍然是完整的 PDF 阅读器**：高亮、批注、手绘都能用，`Ctrl+S` 直接保存回 PDF。
+- 🎯 **Sentence linking**: rest the pointer on a sentence and it is outlined, an arrow points to its translation, and both stay level. The translation scrolls with the paper.
+- 📄 **Layout-preserving translation**: the panel typesets headings, paragraphs, lists, captions, footnotes and code like a real document, not a list of lines.
+- 🌐 **11 languages, in any direction**: 简体中文, 繁體中文, English, 日本語, 한국어, Français, Deutsch, Español, Português, Русский, Italiano. The paper's language is detected sentence by sentence, and Chinese and Japanese papers are split at full-width punctuation. The interface is in English or Chinese, following VS Code.
+- ✍️ **Still a full PDF reader**: highlight, comment and draw with PDF.js tools; `Ctrl+S` saves annotations into the PDF.
 
-## 三步上手
+## Get started
 
-1. 从 [Releases](https://github.com/Chuanyunux/pararead/releases) 下载 `.vsix`，在 VS Code 中运行 **Extensions: Install from VSIX...**。
-2. 命令面板运行 **ParaRead: 设置翻译服务**，选择服务商（默认 [DeepSeek](https://platform.deepseek.com/)），确认模型名并填入 API Key。
-3. 用 VS Code 打开任意 PDF。第一次打开时会确认译文语言（默认跟随 VS Code 界面语言）；正在阅读的页面会自动翻译，把鼠标放到句子上即可对照。
+1. Install **ParaRead** from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=chuanyunux.pararead) (search "ParaRead" in the Extensions view), or download the `.vsix` from [Releases](https://github.com/Chuanyunux/pararead/releases) and run **Extensions: Install from VSIX...**.
+2. Run **ParaRead: Set Up Translation Service** from the Command Palette: choose a service ([DeepSeek](https://platform.deepseek.com/) by default), confirm the model and enter the API key.
+3. Open any PDF. On the first paper, ParaRead confirms the translation language (by default the VS Code display language). The pages you read are translated automatically; rest the pointer on a sentence to compare.
 
-需要 VS Code 1.95 或更高版本。
+Requires VS Code 1.95 or later.
 
-## 使用方法
+## Usage
 
-| 操作                   | 效果                                           |
-| ---------------------- | ---------------------------------------------- |
-| 鼠标停在句子上         | 选中这一句：加框、箭头指向译文、译文与原句对齐 |
-| 单击 / Alt+单击句子    | 选中并立即翻译它所在的段落                     |
-| 单击空白处 / `Esc`     | 取消选中                                       |
-| 在译文上悬停 / 单击    | 反向定位原句（单击会滚动到原句）               |
-| 面板顶部「显示原文」   | 勾选后在每段译文下方显示对应的原文             |
-| 面板顶部语言按钮       | 显示当前译文语言，单击可切换                   |
-| 工具栏面板图标         | 显示 / 隐藏译文面板；分隔条可拖动调整宽度      |
-| **ParaRead: 翻译整篇** | 确认后翻译全文，显示进度，可随时取消           |
+| Action                                | Result                                                                   |
+| ------------------------------------- | ------------------------------------------------------------------------ |
+| Rest the pointer on a sentence        | Selects it: outline, arrow to the translation, translation aligned to it |
+| Click / Alt+click a sentence          | Selects it and translates its paragraph right away                       |
+| Click empty space / `Esc`             | Clears the selection                                                     |
+| Hover / click a translation           | Finds the original sentence (click scrolls to it)                        |
+| **Show original** in the panel header | Shows the original under each translated paragraph                       |
+| Language button in the panel header   | Shows the translation language; click to change it                       |
+| Panel icon in the toolbar             | Shows or hides the panel; drag the splitter to resize it                 |
+| **ParaRead: Translate Whole Paper**   | Translates everything after a confirmation, with progress; cancellable   |
 
-## 与同类工具的区别
+## How it compares
 
-|                                                  | ParaRead | 沉浸式翻译 | PDFMathTranslate     | 其他 VS Code 翻译插件 |
-| ------------------------------------------------ | -------- | ---------- | -------------------- | --------------------- |
-| 在 VS Code 内阅读                                | ✅       | ❌ 浏览器  | ❌ 独立工具 / Zotero | ✅                    |
-| 逐句对照、原文译文同高对齐                       | ✅       | ❌         | ❌                   | ❌                    |
-| 译文保留段落、标题等结构                         | ✅       | ✅         | ✅（生成新 PDF）     | 多为纯文本            |
-| 标注保存回原 PDF                                 | ✅       | ❌         | ❌                   | 部分支持              |
-| 自选模型（DeepSeek / OpenAI 兼容 / 本地 Ollama） | ✅       | ✅         | ✅                   | 视插件而定            |
+|                                                                    | ParaRead | Immersive Translate | PDFMathTranslate         | Other VS Code translators |
+| ------------------------------------------------------------------ | -------- | ------------------- | ------------------------ | ------------------------- |
+| Read inside VS Code                                                | ✅       | ❌ browser          | ❌ standalone / Zotero   | ✅                        |
+| Sentence-level linking, original and translation level             | ✅       | ❌                  | ❌                       | ❌                        |
+| Translation keeps paragraphs, headings, etc.                       | ✅       | ✅                  | ✅ (generates a new PDF) | mostly plain text         |
+| Annotations saved into the original PDF                            | ✅       | ❌                  | ❌                       | some                      |
+| Your choice of model (DeepSeek / OpenAI-compatible / local Ollama) | ✅       | ✅                  | ✅                       | depends                   |
 
-如果你需要一份排版完全保留的翻译版 PDF，PDFMathTranslate 更合适；如果你想**边读原文边对照译文**，试试 ParaRead。
+If you need a translated PDF with the layout fully preserved, PDFMathTranslate is the better fit. If you want to **read the original with the translation beside it**, try ParaRead.
 
-## 模型、费用与隐私
+## Models, cost and privacy
 
-- **默认使用 DeepSeek**（`deepseek-flash`），也支持任意 OpenAI 兼容接口。「设置翻译服务」内置 DeepSeek、OpenAI、通义千问、Kimi、智谱 GLM、硅基流动、OpenRouter、Google Gemini、Ollama、LM Studio 的地址和建议模型；使用本地 [Ollama](https://ollama.com/) 时完全离线、无需 API Key。
-- **按句缓存**：译文按句保存在本机，重新打开论文不再调用接口，不重复计费。**ParaRead** 输出频道会记录每次调用的 token 用量。
-- **只发送需要翻译的句子**到你配置的接口；API Key 保存在 VS Code 的安全存储中，不写入任何文件，也不会进入网页视图（网页视图本身不能联网）。
-- 缓存保存在 VS Code 为扩展分配的目录（可用 `pararead.cacheDir` 修改），**不会**在论文所在目录写入文件；除你主动保存标注外，不会修改 PDF。
+- **DeepSeek by default** (`deepseek-flash`), or any OpenAI-compatible API. **Set Up Translation Service** has presets for DeepSeek, OpenAI, Qwen, Kimi, GLM, SiliconFlow, OpenRouter, Google Gemini, Ollama and LM Studio. With a local [Ollama](https://ollama.com/), everything stays offline and no API key is needed.
+- **Cached per sentence**: translations are stored on your machine, so reopening a paper makes no API calls and costs nothing. The **ParaRead** output channel logs the token usage of every call.
+- **Only the sentences to translate** are sent to the service you configured. The API key is kept in VS Code's secret storage, is never written to a file, and never reaches the webview (which has no network access).
+- The cache lives in the extension's storage folder (`pararead.cacheDir` to change it); nothing is written next to your papers, and PDFs are only modified when you save annotations.
 
 <details>
-<summary>全部设置</summary>
+<summary>All settings</summary>
 
-| 设置                          | 默认值                     | 说明                                                                                                                  |
-| ----------------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `pararead.baseUrl`            | `https://api.deepseek.com` | OpenAI 兼容接口地址；Ollama 用 `http://localhost:11434/v1`                                                            |
-| `pararead.targetLanguage`     | `auto`                     | 译文语言；`auto` 跟随 VS Code 界面语言，也可选 `zh-CN`、`zh-TW`、`en`、`ja`、`ko`、`fr`、`de`、`es`、`pt`、`ru`、`it` |
-| `pararead.sourceLanguage`     | `auto`                     | 论文原文的语言；`auto` 逐句自动识别，识别不准时可指定                                                                 |
-| `pararead.model`              | `deepseek-flash`           | 模型名，例如 `deepseek-v4-pro`                                                                                        |
-| `pararead.temperature`        | `0.7`                      | 越低术语译法越一致                                                                                                    |
-| `pararead.extraBody`          | `{}`                       | 附加请求字段；服务需要的字段自动添加（DeepSeek 自动关闭思考模式）                                                     |
-| `pararead.translateRange`     | `nearby`                   | 自动翻译范围：`page` 当前页 / `nearby` 当前页及前后页 / `manual` 仅手动                                               |
-| `pararead.glossary`           | `{}`                       | 术语表，例如 `{"attention": "注意力"}`；也可按语言设置：`{"ja": {"attention": "アテンション"}}`                       |
-| `pararead.selectOnHover`      | `true`                     | 鼠标悬停即选中；关闭后仅单击选中                                                                                      |
-| `pararead.maxCharsPerRequest` | `3000`                     | 单次请求的原文字符上限                                                                                                |
-| `pararead.requestTimeout`     | `60000`                    | 请求超时（毫秒）                                                                                                      |
-| `pararead.cacheDir`           | 空                         | 自定义缓存目录                                                                                                        |
+| Setting                       | Default                    | Description                                                                                                                                  |
+| ----------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pararead.baseUrl`            | `https://api.deepseek.com` | OpenAI-compatible API address; `http://localhost:11434/v1` for Ollama                                                                        |
+| `pararead.model`              | `deepseek-flash`           | Model name of the service                                                                                                                    |
+| `pararead.targetLanguage`     | `auto`                     | Translation language; `auto` follows the VS Code display language, or `zh-CN`, `zh-TW`, `en`, `ja`, `ko`, `fr`, `de`, `es`, `pt`, `ru`, `it` |
+| `pararead.sourceLanguage`     | `auto`                     | Language of the papers; `auto` detects it per sentence                                                                                       |
+| `pararead.temperature`        | `0.7`                      | Lower values give more consistent terminology                                                                                                |
+| `pararead.extraBody`          | `{}`                       | Extra request fields; fields a service needs are added automatically (thinking mode off for DeepSeek)                                        |
+| `pararead.translateRange`     | `nearby`                   | What to translate automatically: `page`, `nearby` (current page and its neighbours) or `manual`                                              |
+| `pararead.glossary`           | `{}`                       | Glossary, e.g. `{"attention": "注意力"}`, or per language: `{"ja": {"attention": "アテンション"}}`                                           |
+| `pararead.selectOnHover`      | `true`                     | Select sentences on hover; when off, only clicks select                                                                                      |
+| `pararead.maxCharsPerRequest` | `3000`                     | Maximum source characters per request                                                                                                        |
+| `pararead.requestTimeout`     | `60000`                    | Request timeout in milliseconds                                                                                                              |
+| `pararead.cacheDir`           | empty                      | Custom cache directory                                                                                                                       |
 
 </details>
 
-## 常见问题
+## FAQ
 
-**会上传整个 PDF 吗？** 不会。只有需要翻译的句子文本会发送到你配置的接口，PDF 文件本身不会离开本机。
+**Is the whole PDF uploaded?** No. Only the text of the sentences to translate is sent to the service you configured; the PDF file never leaves your machine.
 
-**双栏论文效果如何？** 支持双栏、被图表打断的段落、跨栏续写的段落。当前的限制是：跨页的句子会被拆成两句，整行公式可能被当作句子，标题页的作者列表可能被识别成标题。
+**How well does it handle two-column papers?** Two columns, paragraphs interrupted by figures and paragraphs continuing in the next column are supported. Known limits: a sentence split across pages becomes two sentences, display equations may be taken for sentences, and author lists on the title page may be taken for headings.
 
-**支持哪些语言的论文？** 横排的中文、日文、韩文、俄文和英、法、德、西、葡、意文论文。竖排版面和从右向左书写的语言（如阿拉伯语）暂不支持。
+**Which paper languages are supported?** Horizontal Chinese, Japanese, Korean, Russian, English, French, German, Spanish, Portuguese and Italian. Vertical layouts and right-to-left languages (e.g. Arabic) are not supported yet.
 
-**面板里显示的是原文，没有翻译？** 译文语言没有设置时跟随 VS Code 界面语言。英文界面下读英文论文，句子已经是“译文语言”，所以按原文显示。单击面板顶部的语言按钮，或运行命令 **ParaRead: Choose Translation Language**（中文界面为“选择译文语言”）即可更改。
+**The panel shows the original instead of a translation?** Unless you choose one, the translation language is the VS Code display language, so an English paper in an English VS Code is already "translated". Click the language button in the panel header, or run **ParaRead: Choose Translation Language**.
 
-**可以只用本地模型吗？** 可以。运行「设置翻译服务」选择 Ollama 或 LM Studio，填入本地已下载的模型名即可，无需 API Key。
+**Can I use only a local model?** Yes. Run **Set Up Translation Service**, choose Ollama or LM Studio and enter a model you have downloaded; no API key is needed.
 
-**支持哪些服务？** 任何兼容 OpenAI `/chat/completions` 接口、支持 JSON 输出模式的服务。Azure OpenAI（鉴权方式不同）和只提供原生接口的服务暂不支持，可通过 OpenRouter 等兼容网关接入；部分推理模型不接受 `temperature` 或 `max_tokens`，建议选普通对话模型。
+**Which services work?** Any service with an OpenAI-compatible `/chat/completions` API and JSON output mode. Azure OpenAI (different authentication) and services with only a native API are not supported directly; an OpenAI-compatible gateway such as OpenRouter works. Some reasoning models reject `temperature` or `max_tokens`; prefer a regular chat model.
 
-**会影响我已有的 PDF 标注吗？** 不会。ParaRead 的选中框只是临时显示，不写入 PDF；鼠标在已有标注上时也不会触发选中。
+**Does it touch my existing annotations?** No. ParaRead's selection outline is only drawn on screen, never written to the PDF, and hovering existing annotations does not select sentences.
 
-## 路线图
+## Roadmap
 
-- [ ] 学习模式：译文默认模糊，点击后显示
-- [ ] 导出双语对照 Markdown
-- [ ] 生词本：Alt+双击单词查词、导出 Anki
-- [ ] 上架 VS Code 插件市场与 Open VSX
+- [ ] Study mode: translations blurred until clicked
+- [ ] Export a bilingual Markdown file
+- [ ] Vocabulary book: Alt+double-click to look up a word, export to Anki
+- [ ] Publish on Open VSX
 
-欢迎在 [Issues](https://github.com/Chuanyunux/pararead/issues) 中提需求和反馈问题。
+Ideas and bug reports are welcome in [Issues](https://github.com/Chuanyunux/pararead/issues).
 
-## 开发
+## Development
 
 ```sh
 pnpm install
-pnpm run build      # 构建扩展与网页视图
-pnpm test           # 单元测试（首次运行会从 arXiv 下载测试论文）
-pnpm run check      # 类型检查、lint、格式检查
+pnpm run build      # build the extension and the webview
+pnpm test           # unit tests (the first run downloads a test paper from arXiv)
+pnpm run check      # type check, lint and format check
 ```
 
-在 VS Code 中按 `F5` 启动扩展调试窗口；也可以运行 `pnpm run harness`，在浏览器中打开 `http://localhost:5178/?pdf=papers/<文件>.pdf` 调试网页视图（`papers/` 不纳入版本控制）。贡献方式见 [CONTRIBUTING.md](CONTRIBUTING.md)，首次提交 PR 需签署 [贡献者许可协议](CLA.md)。
-
----
-
-<a id="english"></a>
-
-## English
-
-**ParaRead** — hover over a sentence and its translation sits right beside it, at the same height. A sentence-by-sentence bilingual reader for PDF papers in VS Code, translating between 11 languages: Chinese (Simplified and Traditional), English, Japanese, Korean, French, German, Spanish, Portuguese, Russian and Italian. The language of the paper is detected sentence by sentence (`pararead.sourceLanguage`), and Chinese and Japanese papers are split at full-width punctuation. The target language follows the VS Code display language by default (`pararead.targetLanguage`). Vertical text and right-to-left languages are not supported.
-
-- 🎯 **Sentence linking**: hovering a sentence outlines it, draws an arrow to its translation and keeps both level; the translation scrolls with the paper. Click to translate its paragraph right away; click empty space or press `Esc` to clear.
-- 📄 **Layout-preserving translation panel**: headings, paragraphs, lists, captions, footnotes and code, page by page, with an optional view of the original. The language button in its header shows and changes the translation language.
-- ✍️ **Still a full PDF reader**: PDF.js highlight, comment and drawing tools; `Ctrl+S` saves annotations into the PDF.
-- 🔌 **Your model**: DeepSeek by default, or any OpenAI-compatible API. **ParaRead: Set Up Translation Service** has presets for DeepSeek, OpenAI, Qwen, Kimi, GLM, SiliconFlow, OpenRouter, Google Gemini, Ollama and LM Studio (local, fully offline). Translations are cached per sentence, so reopening a paper costs nothing.
-
-**Install**: download the `.vsix` from [Releases](https://github.com/Chuanyunux/pararead/releases), run **Extensions: Install from VSIX...** (VS Code ≥ 1.95), then **ParaRead: Set Up Translation Service** (choose a service, a model and enter the API key) and open a PDF. The interface is in English or Chinese, following VS Code. On the first paper, ParaRead confirms the translation language, which otherwise follows the VS Code display language.
-
-**Privacy**: only the sentences to translate are sent to the configured API. The API key lives in VS Code's secret storage and never reaches the webview, which has no network access. PDFs are only modified when you save annotations.
-
-**Development**: `pnpm install`, `pnpm run build`, `pnpm test` (downloads a test paper from arXiv on first run), `pnpm run check`; press `F5` in VS Code to debug.
+Press `F5` in VS Code to start an Extension Development Host, or run `pnpm run harness` and open `http://localhost:5178/?pdf=papers/<file>.pdf` to debug the webview in a browser (`papers/` is not tracked). See [CONTRIBUTING.md](CONTRIBUTING.md); a first pull request needs the [Contributor License Agreement](CLA.md).
 
 ### Updating PDF.js
 
