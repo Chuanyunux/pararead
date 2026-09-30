@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- The toolbar button of the translation panel shows a translate sign (文 and
+  A) instead of a split view; the A turns orange while the panel is open.
+- The README is in English; the Chinese version is in `README.zh-CN.md`.
+
 ## [0.6.0] - 2026-09-30
 
 ### Added

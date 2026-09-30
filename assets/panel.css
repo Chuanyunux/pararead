@@ -356,19 +356,18 @@ body.bilingualResizing #outerContainer {
   height: 16px;
 }
 
-.bilingualToggleIcon .frame {
+.bilingualToggleIcon path {
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.2;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.bilingualToggleIcon .side {
-  fill: currentColor;
-  opacity: 0.25;
-}
-
-.bilingualToggle[aria-pressed="true"] .bilingualToggleIcon .side {
-  opacity: 0.85;
+/* Panel open: the translated letter turns orange, like the selection. */
+.bilingualToggle[aria-pressed="true"] .bilingualToggleIcon .target {
+  stroke: var(--bilingual-select);
+  stroke-width: 1.5;
 }
 
 /* Sentence highlight drawn over the page; never part of the PDF. */

@@ -413,36 +413,31 @@ function renderSentence(
   span.title = state.status === "error" ? t("translationFailed", state.message) : "";
 }
 
-/** Toolbar icon: a split view with the right-hand panel highlighted. */
+/**
+ * Toolbar icon: the usual "translate" sign, a Chinese character (文) with a
+ * Latin letter (A). Drawn with strokes so that it doesn't depend on fonts.
+ */
 function panelIcon(): SVGSVGElement {
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");
   svg.setAttribute("viewBox", "0 0 16 16");
   svg.setAttribute("aria-hidden", "true");
   svg.classList.add("bilingualToggleIcon");
-  const frame = document.createElementNS(ns, "rect");
-  for (const [name, value] of Object.entries({
-    x: "1.5",
-    y: "2.5",
-    width: "13",
-    height: "11",
-    rx: "1.5",
-  })) {
-    frame.setAttribute(name, value);
-  }
-  frame.classList.add("frame");
-  const side = document.createElementNS(ns, "rect");
-  for (const [name, value] of Object.entries({
-    x: "9",
-    y: "3",
-    width: "5",
-    height: "10",
-    rx: "1",
-  })) {
-    side.setAttribute(name, value);
-  }
-  side.classList.add("side");
-  svg.append(frame, side);
+  const glyph = (className: string, d: string) => {
+    const path = document.createElementNS(ns, "path");
+    path.setAttribute("d", d);
+    path.classList.add(className);
+    return path;
+  };
+  svg.append(
+    // 文: dot, top bar and two crossing strokes.
+    glyph(
+      "source",
+      "M5 1.2v1.6M1.4 3.4h7.2M2.6 4.6c.9 2.6 2.7 4.6 5.4 5.8M7.4 4.6C6.5 7.2 4.7 9.2 2 10.4",
+    ),
+    // A: two legs and a bar.
+    glyph("target", "M8.6 14.8 11.6 6.6l3 8.2M9.7 12.1h3.8"),
+  );
   return svg;
 }
 
