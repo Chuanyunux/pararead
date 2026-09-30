@@ -129,11 +129,5 @@ dist
 # Local sample papers (third-party PDFs)
 papers/
 
-# Claude Code local configuration
-.claude/
-
-# Internal planning notes (kept locally)
-pdf-bilingual-reader-需求.md
-
 # Hand-written type declarations are sources (the rule above ignores *.d.ts)
 !src/webview/pdfjs.d.ts
