@@ -16,8 +16,9 @@ Read foreign-language PDF papers sentence by sentence in VS Code.
 
 </div>
 
-<!-- Demo GIFs (docs/): demo-hover.gif (hover → arrow → aligned translation → scroll in sync),
-     demo-panel.gif (show original, switch language), demo-setup.gif (set up the service). -->
+![Rest the pointer on a sentence: an arrow points to its translation, aligned at the same height](demos/demo-hover.gif)
+
+<!-- More demos (demos/): demo-panel.gif (show original, switch language), demo-setup.gif (set up the service). -->
 
 ## Why ParaRead
 

@@ -16,6 +16,8 @@ tools/**
 patches/**
 papers/**
 docs/**
+# README demo GIFs: shown from GitHub, not needed in the package
+demos/**
 out/**
 **/tsconfig.json
 **/*.map

@@ -16,8 +16,9 @@
 
 </div>
 
-<!-- 演示动图（docs/）：demo-hover.gif（悬停 → 箭头 → 译文对齐 → 同步滚动）、
-     demo-panel.gif（显示原文、切换语言）、demo-setup.gif（设置翻译服务）。 -->
+![鼠标停在句子上：箭头指向对应的译文，两者在同一高度对齐](demos/demo-hover.gif)
+
+<!-- 更多演示（demos/）：demo-panel.gif（显示原文、切换语言）、demo-setup.gif（设置翻译服务）。 -->
 
 ## 为什么用 ParaRead
 
